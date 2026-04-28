@@ -526,8 +526,11 @@ let W = canvas.width, H = canvas.height;
 // Sprite scale factor — bigger canvas = bigger sprites
 let SCALE = 1;
 function updateScale() {
-  // Base scale of 1 at 384px wide; up to ~2x on phones
-  SCALE = Math.max(1, Math.min(W / 384, H / 288));
+  // Base scale of 1 at 384px wide; scaled up on bigger canvases.
+  // Mobile gets a 1.2x boost so Doug isn't a tiny speck on a tall screen.
+  const isPortrait = H > W;
+  const baseScale = Math.max(1, Math.min(W / 384, H / 288));
+  SCALE = isPortrait ? baseScale * 1.2 : baseScale;
 }
 
 // Resize canvas to fill viewport. On mobile we go tall portrait, on desktop the original 4:3.
@@ -1584,42 +1587,43 @@ function drawCloud(x, y) {
 
 // Doug's speech bubble — chunky retro style with tail pointing down to him
 function drawSpeechBubble(targetX, targetY, text) {
-  ctx.font = 'bold 8px "Press Start 2P"';
+  const fontSize = Math.round(8 * SCALE);
+  ctx.font = `bold ${fontSize}px "Press Start 2P"`;
   const metrics = ctx.measureText(text);
-  const padX = 6, padY = 5;
+  const padX = 6 * SCALE, padY = 5 * SCALE;
   const w = Math.ceil(metrics.width) + padX * 2;
-  const h = 14;
+  const h = 14 * SCALE;
   // Position bubble above, clamp to canvas edges
   let bx = Math.floor(targetX - w / 2);
-  let by = Math.floor(targetY - h - 8);
+  let by = Math.floor(targetY - h - 8 * SCALE);
   if (bx < 4) bx = 4;
   if (bx + w > W - 4) bx = W - 4 - w;
   if (by < 4) by = 4;
 
   // Black outline (shadow style)
   ctx.fillStyle = '#000';
-  ctx.fillRect(bx - 2, by - 2, w + 4, h + 4);
+  ctx.fillRect(bx - 2 * SCALE, by - 2 * SCALE, w + 4 * SCALE, h + 4 * SCALE);
   // White bubble
   ctx.fillStyle = '#fff';
   ctx.fillRect(bx, by, w, h);
   // Inner border
   ctx.fillStyle = '#000';
-  ctx.fillRect(bx + 1, by + 1, w - 2, 1); // top
-  ctx.fillRect(bx + 1, by + h - 2, w - 2, 1); // bottom
-  ctx.fillRect(bx + 1, by + 1, 1, h - 2); // left
-  ctx.fillRect(bx + w - 2, by + 1, 1, h - 2); // right
+  ctx.fillRect(bx + 1 * SCALE, by + 1 * SCALE, w - 2 * SCALE, 1 * SCALE); // top
+  ctx.fillRect(bx + 1 * SCALE, by + h - 2 * SCALE, w - 2 * SCALE, 1 * SCALE); // bottom
+  ctx.fillRect(bx + 1 * SCALE, by + 1 * SCALE, 1 * SCALE, h - 2 * SCALE); // left
+  ctx.fillRect(bx + w - 2 * SCALE, by + 1 * SCALE, 1 * SCALE, h - 2 * SCALE); // right
   ctx.fillStyle = '#fff';
-  ctx.fillRect(bx + 2, by + 2, w - 4, h - 4);
+  ctx.fillRect(bx + 2 * SCALE, by + 2 * SCALE, w - 4 * SCALE, h - 4 * SCALE);
 
   // Tail pointing down toward Doug
-  const tailX = Math.max(bx + 6, Math.min(bx + w - 6, targetX));
+  const tailX = Math.max(bx + 6 * SCALE, Math.min(bx + w - 6 * SCALE, targetX));
   ctx.fillStyle = '#000';
-  ctx.fillRect(tailX - 2, by + h, 5, 1);
-  ctx.fillRect(tailX - 1, by + h + 1, 3, 1);
-  ctx.fillRect(tailX, by + h + 2, 1, 1);
+  ctx.fillRect(tailX - 2 * SCALE, by + h, 5 * SCALE, 1 * SCALE);
+  ctx.fillRect(tailX - 1 * SCALE, by + h + 1 * SCALE, 3 * SCALE, 1 * SCALE);
+  ctx.fillRect(tailX, by + h + 2 * SCALE, 1 * SCALE, 1 * SCALE);
   ctx.fillStyle = '#fff';
-  ctx.fillRect(tailX - 1, by + h - 1, 3, 1);
-  ctx.fillRect(tailX, by + h, 1, 1);
+  ctx.fillRect(tailX - 1 * SCALE, by + h - 1 * SCALE, 3 * SCALE, 1 * SCALE);
+  ctx.fillRect(tailX, by + h, 1 * SCALE, 1 * SCALE);
 
   // Text
   ctx.fillStyle = '#000';
@@ -1673,7 +1677,7 @@ function fireShot(x, y) {
     flashFeedback('MISS!');
     // Doug taunts you on miss (50% of the time)
     if (state.bird && state.bird.alive && !state.bird.falling && Math.random() < 0.5) {
-      showTaunt(pickTaunt('miss'), state.bird.x, state.bird.y - 22);
+      showTaunt(pickTaunt('miss'), state.bird.x, state.bird.y - 22 * SCALE);
     }
   }
   updateHUD();
@@ -1767,7 +1771,7 @@ function checkDuckResolved() {
       d.vx *= 0.4;
       d.escapeTimer = 999;
       SFX.escape();
-      showTaunt(pickTaunt('outOfShots'), d.x, d.y - 22);
+      showTaunt(pickTaunt('outOfShots'), d.x, d.y - 22 * SCALE);
     }
   }
 }
@@ -1868,7 +1872,7 @@ function loop() {
     if (state.tauntCooldown > 0) state.tauntCooldown--;
     if (state.bird && state.bird.alive && !state.bird.falling && !state.bird._escapeStarted
         && state.tauntCooldown === 0 && Math.random() < 0.012) {
-      showTaunt(pickTaunt('flying'), state.bird.x, state.bird.y - 22);
+      showTaunt(pickTaunt('flying'), state.bird.x, state.bird.y - 22 * SCALE);
       state.tauntCooldown = 90; // wait at least 1.5s between random taunts
     }
     checkDuckResolved();
@@ -1932,7 +1936,7 @@ function loop() {
     // bubble follows the bird
     if (state.bird && state.bird.alive) {
       state.taunt.x = state.bird.x;
-      state.taunt.y = state.bird.y - 22;
+      state.taunt.y = state.bird.y - 22 * SCALE;
     }
     if (state.taunt.timer > 0) {
       drawSpeechBubble(state.taunt.x, state.taunt.y, state.taunt.text);
