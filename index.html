@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>DOUG HUNT // 8-BIT</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    /* iOS safe areas */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+
+  body {
+    font-family: 'Press Start 2P', monospace;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100dvh; /* dynamic viewport - good for mobile */
+    user-select: none;
+    -webkit-user-select: none;
+    image-rendering: pixelated;
+    padding: 8px;
+  }
+
+  /* Hide cursor only over the canvas during gameplay */
+  #game-wrap.playing canvas {
+    cursor: none;
+  }
+
+  /* CRT scanlines */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.18),
+      rgba(0,0,0,0.18) 2px,
+      transparent 2px,
+      transparent 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.7) 100%);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  #game-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 768px;
+    aspect-ratio: 4 / 3;
+    /* Cap height so the wrap never exceeds viewport height (after factoring header/footer) */
+    max-height: calc(100vh - 60px);
+    max-height: calc(100dvh - 60px);
+    border: 4px solid #222;
+    box-shadow:
+      0 0 0 4px #444,
+      0 0 30px rgba(0, 200, 255, 0.4),
+      inset 0 0 60px rgba(0,0,0,0.5);
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  /* HUD */
+  #hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 14px;
+    text-shadow: 2px 2px 0 #000;
+    pointer-events: none;
+    z-index: 5;
+    letter-spacing: 1px;
+  }
+
+  .hud-block {
+    background: rgba(0,0,0,0.4);
+    padding: 6px 10px;
+    border: 2px solid #fff;
+    box-shadow: 3px 3px 0 #000;
+  }
+
+  .hud-block .label {
+    color: #ffeb3b;
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+
+  /* Ammo display */
+  #ammo {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .bullet {
+    width: 12px;
+    height: 18px;
+    background: #ffd700;
+    border: 1px solid #000;
+    box-shadow: inset -2px -2px 0 #c8a200;
+  }
+  .bullet.spent {
+    background: #555;
+    box-shadow: inset -2px -2px 0 #333;
+  }
+
+  /* Round indicators - ducks needed */
+  #ducks-row {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .duck-icon {
+    width: 14px;
+    height: 14px;
+    background: #d2691e;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(45deg);
+    border: 1px solid #000;
+  }
+  .duck-icon.hit { background: #ff3030; }
+  .duck-icon.miss { background: #333; }
+
+  /* Title screen */
+  #title-screen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, #5c94fc 0%, #fcbcb0 70%, #00a800 70%, #008800 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  #title-screen h1 {
+    font-size: 64px;
+    color: #fff;
+    text-shadow:
+      4px 4px 0 #000,
+      8px 8px 0 #ff0000,
+      -2px -2px 0 #ffeb3b;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+    animation: title-bounce 2s ease-in-out infinite;
+  }
+
+  #title-screen .made-by {
+    font-size: 10px;
+    color: #fff;
+    text-shadow: 2px 2px 0 #000;
+    letter-spacing: 3px;
+    margin-bottom: 30px;
+    opacity: 0.85;
+  }
+
+  @keyframes title-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  #title-screen .subtitle {
+    font-size: 14px;
+    color: #ffeb3b;
+    text-shadow: 2px 2px 0 #000;
+    margin-bottom: 40px;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  .start-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 18px;
+    padding: 18px 36px;
+    background: #ff0000;
+    color: #fff;
+    border: 4px solid #fff;
+    cursor: pointer;
+    text-shadow: 2px 2px 0 #000;
+    box-shadow: 6px 6px 0 #000;
+    letter-spacing: 2px;
+    transition: transform 0.05s;
+  }
+  .start-btn:hover {
+    background: #ff4444;
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 #000;
+  }
+  .start-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 #000;
+  }
+
+  .blink { animation: blink 0.6s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Game over screen */
+  #endgame {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  #endgame.show { display: flex; }
+  #endgame h2 {
+    font-size: 40px;
+    margin-bottom: 20px;
+    text-shadow: 4px 4px 0 #000;
+    letter-spacing: 3px;
+  }
+  #endgame .stats {
+    font-size: 14px;
+    line-height: 2;
+    color: #ffeb3b;
+    text-shadow: 2px 2px 0 #000;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+  #endgame .perfect { color: #00ff41; }
+  #endgame .gameover { color: #ff3030; }
+  #endgame .win { color: #00ff41; text-shadow: 4px 4px 0 #000, 0 0 20px #00ff41 !important; }
+
+  .credit {
+    position: absolute;
+    bottom: 10px;
+    color: #888;
+    font-size: 8px;
+    letter-spacing: 2px;
+  }
+
+  /* Round transition */
+  #round-banner {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    pointer-events: none;
+  }
+  #round-banner.show {
+    display: flex;
+    animation: banner-fade 1.8s ease-in-out forwards;
+  }
+  #round-banner .banner-text {
+    font-size: 36px;
+    color: #ffeb3b;
+    text-shadow: 4px 4px 0 #000, 0 0 20px #ff0000;
+    letter-spacing: 4px;
+  }
+
+  @keyframes banner-fade {
+    0% { opacity: 0; }
+    15%, 75% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* Mute button */
+  #mute-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    z-index: 10;
+    width: 40px;
+    height: 40px;
+    background: rgba(0,0,0,0.5);
+    border: 2px solid #fff;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 3px 3px 0 #000;
+    padding: 0;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #mute-btn:hover {
+    background: rgba(255,255,255,0.2);
+  }
+  #mute-btn.muted {
+    color: #ff3030;
+    border-color: #ff3030;
+  }
+
+  /* Controls hint */
+  .controls-hint {
+    margin-top: 12px;
+    font-size: 9px;
+    color: #888;
+    letter-spacing: 2px;
+  }
+  .controls-hint kbd {
+    background: #333;
+    border: 1px solid #555;
+    padding: 2px 6px;
+    color: #fff;
+    margin: 0 2px;
+  }
+
+  /* === MOBILE / PORTRAIT VIEWPORT === */
+  @media (max-width: 600px), (orientation: portrait) {
+    body {
+      padding: 0;
+      justify-content: stretch;
+      align-items: stretch;
+    }
+
+    #game-wrap {
+      width: 100vw;
+      height: 100dvh;
+      max-width: none;
+      max-height: none;
+      aspect-ratio: auto;
+      border: none;
+      box-shadow: none;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Smaller HUD on mobile */
+    #hud {
+      padding: 6px 8px;
+      font-size: 10px;
+      padding-top: max(env(safe-area-inset-top), 8px);
+    }
+    .hud-block {
+      padding: 4px 6px;
+      box-shadow: 2px 2px 0 #000;
+      border-width: 1px;
+    }
+    .hud-block .label {
+      font-size: 7px;
+      margin-bottom: 2px;
+    }
+    #score, #round, #ducks-row, #ammo {
+      font-size: 10px;
+    }
+    .bullet { width: 8px; height: 12px; }
+    .duck-icon { width: 10px; height: 10px; }
+
+    /* Title screen scaling */
+    #title-screen h1 {
+      font-size: 36px;
+      margin-bottom: 6px;
+    }
+    #title-screen .made-by {
+      font-size: 8px;
+      margin-bottom: 18px;
+    }
+    #title-screen .subtitle {
+      font-size: 10px;
+      line-height: 1.6;
+      margin-bottom: 22px;
+      padding: 0 12px;
+    }
+    .start-btn {
+      font-size: 13px;
+      padding: 14px 22px;
+      box-shadow: 4px 4px 0 #000;
+    }
+    .controls-hint {
+      font-size: 7px;
+      padding: 0 12px;
+      text-align: center;
+    }
+
+    /* Endgame screen */
+    #endgame h2 {
+      font-size: 22px;
+      margin-bottom: 12px;
+      padding: 0 12px;
+      text-align: center;
+    }
+    #endgame .stats {
+      font-size: 9px;
+      line-height: 1.8;
+      padding: 0 16px;
+    }
+
+    /* Round banner */
+    #round-banner .banner-text {
+      font-size: 22px;
+    }
+
+    /* Mute button */
+    #mute-btn {
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+      bottom: max(env(safe-area-inset-bottom), 6px);
+      right: 6px;
+    }
+
+    /* Page-level credit hidden on mobile to save space */
+    .credit { display: none; }
+  }
+
+  /* Very short phones (landscape on small screens) */
+  @media (max-height: 500px) {
+    #title-screen h1 { font-size: 28px; margin-bottom: 4px; }
+    #title-screen .subtitle { font-size: 9px; margin-bottom: 14px; }
+    .start-btn { padding: 10px 18px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrap">
+  <canvas id="game" width="384" height="288"></canvas>
+
+  <div id="hud">
+    <div class="hud-block">
+      <div class="label">SCORE</div>
+      <div id="score">000000</div>
+    </div>
+    <div class="hud-block">
+      <div class="label">ROUND <span id="round">1</span></div>
+      <div id="ducks-row"></div>
+    </div>
+    <div class="hud-block">
+      <div class="label">SHOTS</div>
+      <div id="ammo"></div>
+    </div>
+  </div>
+
+  <button id="mute-btn" title="Mute / Unmute (M)">🔊</button>
+
+  <div id="round-banner">
+    <div class="banner-text" id="banner-text">ROUND 1</div>
+  </div>
+
+  <div id="title-screen">
+    <h1>DOUG HUNT</h1>
+    <div class="made-by">Made by FLOCO.</div>
+    <div class="subtitle">
+      &gt; 3 ROUNDS TO BEAT DOUG<br>
+      &gt; HIT 3 OF 5 DOUGS PER ROUND<br>
+      &gt; 3 SHOTS PER DOUG<br>
+      &gt; SHOOT GOLD CRATES TO RELOAD<br>
+      &gt; HE WILL TALK TRASH
+    </div>
+    <button class="start-btn" id="start-btn">▶ PRESS START</button>
+    <div class="controls-hint">TAP / CLICK TO SHOOT &nbsp;•&nbsp; M = MUTE</div>
+  </div>
+
+  <div id="endgame">
+    <h2 id="endgame-title">GAME OVER</h2>
+    <div class="stats" id="endgame-stats"></div>
+    <button class="start-btn" id="retry-btn">▶ PLAY AGAIN</button>
+  </div>
+</div>
+
+<div class="credit">© 1984 FLOCO ENTERTAINMENT • DOUG MUST PAY</div>
+
+<script>
+// =========== DUCK HUNT 8-BIT ===========
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+let W = canvas.width, H = canvas.height;
+
+// Sprite scale factor — bigger canvas = bigger sprites
+let SCALE = 1;
+function updateScale() {
+  // Base scale of 1 at 384px wide; up to ~2x on phones
+  SCALE = Math.max(1, Math.min(W / 384, H / 288));
+}
+
+// Resize canvas to fill viewport. On mobile we go tall portrait, on desktop the original 4:3.
+function resizeCanvas() {
+  const wrap = document.getElementById('game-wrap');
+  const isPortrait = window.innerHeight > window.innerWidth || window.innerWidth < 600;
+
+  if (isPortrait) {
+    // Use viewport dimensions, but cap pixel resolution so rendering stays cheap
+    const targetW = Math.min(window.innerWidth, 480);
+    const targetH = Math.min(window.innerHeight, 960);
+    canvas.width = targetW;
+    canvas.height = targetH;
+  } else {
+    // Desktop: keep classic 4:3 base resolution, CSS scales it up
+    canvas.width = 384;
+    canvas.height = 288;
+  }
+
+  W = canvas.width;
+  H = canvas.height;
+  ctx.imageSmoothingEnabled = false;
+  updateScale();
+}
+
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  // Re-layout dog positions etc. that may depend on H
+});
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 100));
+resizeCanvas();
+
+// =========== AUDIO ENGINE (chiptune-style, no files) ===========
+const SFX = (() => {
+  let audioCtx = null;
+  let masterGain = null;
+  let muted = false;
+
+  function init() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.35;
+    masterGain.connect(audioCtx.destination);
+
+    // iOS unlock: play a silent buffer so subsequent sounds work
+    const buffer = audioCtx.createBuffer(1, 1, 22050);
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.start(0);
+  }
+
+  function ensure() {
+    if (!audioCtx) init();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  // Basic tone with envelope
+  function tone(freq, dur, type = 'square', vol = 0.3, attack = 0.005, decay = 0.0) {
+    if (!audioCtx || muted) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    osc.connect(gain).connect(masterGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur + 0.05);
+  }
+
+  // Frequency sweep (good for shots, falls, swoops)
+  function sweep(freqStart, freqEnd, dur, type = 'square', vol = 0.3) {
+    if (!audioCtx || muted) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freqStart, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 1), audioCtx.currentTime + dur);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    osc.connect(gain).connect(masterGain);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur + 0.05);
+  }
+
+  // White noise burst (for shotgun blast)
+  function noise(dur, vol = 0.4, filter = 1500) {
+    if (!audioCtx || muted) return;
+    const bufferSize = audioCtx.sampleRate * dur;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const gain = audioCtx.createGain();
+    gain.gain.value = vol;
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = filter;
+    src.connect(lp).connect(gain).connect(masterGain);
+    src.start();
+    src.stop(audioCtx.currentTime + dur);
+  }
+
+  // Sound library
+  return {
+    init,
+    ensure,
+    setMuted(m) { muted = m; },
+    isMuted() { return muted; },
+
+    shot() {
+      ensure();
+      noise(0.15, 0.5, 2500);
+      sweep(180, 60, 0.18, 'sawtooth', 0.25);
+    },
+    quack() {
+      ensure();
+      // Two quick descending squawks
+      sweep(380, 280, 0.08, 'square', 0.18);
+      setTimeout(() => sweep(420, 300, 0.1, 'square', 0.18), 110);
+    },
+    flap() {
+      ensure();
+      tone(120, 0.04, 'square', 0.08);
+    },
+    hit() {
+      ensure();
+      // Stunned hit sound - quick descending blip
+      sweep(800, 200, 0.15, 'square', 0.3);
+    },
+    fall() {
+      ensure();
+      // Whistling fall
+      sweep(900, 100, 0.6, 'sine', 0.18);
+    },
+    splat() {
+      ensure();
+      noise(0.1, 0.3, 800);
+      tone(80, 0.1, 'sawtooth', 0.2);
+    },
+    escape() {
+      ensure();
+      // Sad descending duck escape
+      sweep(600, 200, 0.4, 'triangle', 0.2);
+    },
+    laugh() {
+      ensure();
+      // Iconic dog laugh - a series of staccato notes
+      const notes = [330, 392, 330, 262, 330, 392];
+      notes.forEach((n, i) => {
+        setTimeout(() => tone(n, 0.08, 'square', 0.22), i * 90);
+      });
+    },
+    pickup() {
+      ensure();
+      // Cheerful retrieval ditty
+      tone(523, 0.08, 'square', 0.22);
+      setTimeout(() => tone(659, 0.08, 'square', 0.22), 90);
+      setTimeout(() => tone(784, 0.12, 'square', 0.22), 180);
+    },
+    roundStart() {
+      ensure();
+      // Quick fanfare
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((n, i) => {
+        setTimeout(() => tone(n, 0.1, 'square', 0.25), i * 90);
+      });
+    },
+    roundClear() {
+      ensure();
+      // Bigger victory jingle
+      const notes = [523, 659, 784, 1047, 784, 1047, 1319];
+      notes.forEach((n, i) => {
+        setTimeout(() => tone(n, 0.12, 'square', 0.28), i * 100);
+      });
+    },
+    gameOver() {
+      ensure();
+      // Sad descending
+      const notes = [523, 466, 415, 349, 311, 262];
+      notes.forEach((n, i) => {
+        setTimeout(() => tone(n, 0.18, 'triangle', 0.3), i * 150);
+      });
+    },
+    sniff() {
+      ensure();
+      tone(180, 0.06, 'sine', 0.1);
+    },
+    bark() {
+      ensure();
+      sweep(300, 150, 0.1, 'square', 0.25);
+    },
+    click() {
+      ensure();
+      tone(80, 0.04, 'square', 0.15);
+    }
+  };
+})();
+
+// Game state
+const state = {
+  phase: 'title', // title | playing | dog-laugh | dog-retrieve | round-end | game-over
+  score: 0,
+  round: 1,
+  ducksThisRound: 0,    // how many spawned this round (0..DUCKS_PER_ROUND)
+  ducksHitThisRound: 0,
+  required: 3,           // need to hit at least this many to advance
+  shotsLeft: 3,
+  ducks: [],
+  particles: [],
+  flashes: [],
+  dog: null,
+  bird: null, // mid-flight active bird tracking
+  feedback: '',
+  feedbackTimer: 0,
+  freeze: 0,
+  shotsFired: 0,
+  hits: 0,
+  ducksMissed: 0,
+  roundResults: [], // 'hit' | 'miss' for each duck this round
+  reloadBox: null, // {x, y, vx, vy, spawnedFor} - reload powerup
+  reloadCooldown: 0, // ducks since last reload box appeared
+  taunt: null,       // {text, timer, x, y} current speech bubble
+  tauntCooldown: 0   // frames until next taunt allowed
+};
+
+// Doug's trash talk pool — separated by trigger
+const TAUNTS = {
+  flying: [
+    "MISS ME?",
+    "TOO SLOW!",
+    "NICE AIM, BUDDY",
+    "YOU TRIED",
+    "STILL HERE",
+    "L + RATIO",
+    "GET REKT",
+    "C'MON, REALLY?",
+    "MY GRANDMA SHOOTS BETTER",
+    "HEY, WAKE UP",
+    "AIM, YOU SAY?",
+    "EYES OPEN!",
+    "BWAHAHAHA"
+  ],
+  miss: [
+    "HAHA MISS!",
+    "WHIFFED IT!",
+    "SWING AND A MISS",
+    "AIR BALL",
+    "NOT EVEN CLOSE",
+    "SKILL ISSUE",
+    "LMAO",
+    "TRY AGAIN, CHAMP"
+  ],
+  outOfShots: [
+    "ADIOS, AMIGO!",
+    "SEE YA, LOSER!",
+    "THANKS FOR THE LAUGHS",
+    "BYE BYE!",
+    "PEACE OUT",
+    "GG NO RE",
+    "SMELL YA LATER"
+  ]
+};
+
+function pickTaunt(category) {
+  const list = TAUNTS[category];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function showTaunt(text, x, y) {
+  state.taunt = { text, timer: 80, x, y };
+}
+
+const mouse = { x: W/2, y: H/2, down: false };
+
+function getCanvasCoords(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width;
+  const sy = canvas.height / rect.height;
+  return {
+    x: (clientX - rect.left) * sx,
+    y: (clientY - rect.top) * sy
+  };
+}
+
+canvas.addEventListener('mousemove', e => {
+  const c = getCanvasCoords(e.clientX, e.clientY);
+  mouse.x = c.x; mouse.y = c.y;
+});
+
+function handleShoot(x, y) {
+  if (state.phase !== 'playing') return;
+
+  // Reload box can be hit even with no shots
+  if (state.reloadBox && !state.reloadBox.hit && state.reloadBox.isHit(x, y)) {
+    state.reloadBox.hit = true;
+    state.shotsLeft = 3;
+    SFX.pickup();
+    flashFeedback('+RELOAD!');
+    updateHUD();
+    return;
+  }
+
+  if (state.shotsLeft > 0) {
+    fireShot(x, y);
+  } else {
+    SFX.click();
+  }
+}
+
+canvas.addEventListener('mousedown', e => {
+  handleShoot(mouse.x, mouse.y);
+});
+
+// Touch support for iOS / Android
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  if (!touch) return;
+  const c = getCanvasCoords(touch.clientX, touch.clientY);
+  mouse.x = c.x; mouse.y = c.y;
+  // Show crosshair briefly at the tap point on touch devices too
+  handleShoot(c.x, c.y);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  if (!touch) return;
+  const c = getCanvasCoords(touch.clientX, touch.clientY);
+  mouse.x = c.x; mouse.y = c.y;
+}, { passive: false });
+
+// Prevent double-tap zoom on iOS
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+
+// =========== DUCK ===========
+class Duck {
+  constructor(round) {
+    // Start from just above the grass line
+    this.x = W * 0.1 + Math.random() * (W * 0.8);
+    this.y = H * 0.75 - 10;
+    const speed = (0.6 + Math.min(round * 0.15, 1.4)) * SCALE;
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+    this.vx = Math.cos(angle) * speed * (Math.random() < 0.5 ? -1 : 1);
+    this.vy = Math.sin(angle) * speed;
+    this.color = ['brown', 'red', 'blue'][Math.floor(Math.random() * 3)];
+    this.points = this.color === 'brown' ? 500 : (this.color === 'blue' ? 1000 : 1500);
+    this.alive = true;
+    this.falling = false;
+    this.escaped = false;
+    this.hitTimer = 0;
+    this.flapTimer = 0;
+    this.flapState = 0;
+    this.escapeTimer = 0;
+  }
+
+  update() {
+    if (!this.alive && !this.falling) return;
+
+    if (this.falling) {
+      this.vy += 0.15 * SCALE;
+      this.x += this.vx * 0.3;
+      this.y += this.vy;
+      this.flapTimer++;
+      if (this.flapTimer % 4 === 0) this.flapState = (this.flapState + 1) % 2;
+      if (this.y > H * 0.75 - 5) {
+        this.y = H * 0.75 - 5;
+        this.landed = true;
+      }
+      return;
+    }
+
+    if (this.hitTimer > 0) {
+      this.hitTimer--;
+      if (this.hitTimer === 0) {
+        this.falling = true;
+        this.alive = false;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = -1 * SCALE;
+      }
+      return;
+    }
+
+    // ESCAPING: hard override
+    if (this._escapeStarted) {
+      this.vy = -3.5 * SCALE;
+      this.vx *= 0.92;
+      this.x += this.vx;
+      this.y += this.vy;
+      this.flapTimer++;
+      if (this.flapTimer % 4 === 0) this.flapState = (this.flapState + 1) % 3;
+      if (this.y < -20) {
+        this.escaped = true;
+        this.alive = false;
+      }
+      return;
+    }
+
+    // Normal flight
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // bounce off walls
+    if (this.x < 20) { this.x = 20; this.vx = Math.abs(this.vx); }
+    if (this.x > W - 20) { this.x = W - 20; this.vx = -Math.abs(this.vx); }
+    if (this.y < 30) { this.y = 30; this.vy = Math.abs(this.vy) * 0.5; }
+
+    // After a few seconds, fly upward to escape
+    this.escapeTimer++;
+    if (this.escapeTimer > 60 * 7) {
+      this.vy = Math.min(this.vy - 0.05, -1.5);
+    }
+    if (this.y < -20) {
+      this.escaped = true;
+      this.alive = false;
+    }
+
+    // Random direction shifts
+    if (Math.random() < 0.01) {
+      this.vx = -this.vx;
+    }
+    if (Math.random() < 0.008) {
+      this.vy += (Math.random() - 0.5) * 0.5;
+      this.vy = Math.max(-2, Math.min(0, this.vy));
+    }
+
+    this.flapTimer++;
+    if (this.flapTimer % 6 === 0) this.flapState = (this.flapState + 1) % 3;
+  }
+
+  draw() {
+    if (this.hitTimer > 0) {
+      // hit flash - draw stunned
+      drawDuck(this.x, this.y, this.color, this.vx > 0 ? 1 : -1, 'hit');
+      // stars
+      for (let i = 0; i < 3; i++) {
+        const a = (Date.now() / 100) + i * 2.1;
+        const sx = this.x + Math.cos(a) * 12;
+        const sy = this.y - 12 + Math.sin(a) * 4;
+        drawPixel(sx, sy, '#ffeb3b', 2);
+      }
+      return;
+    }
+    if (this.falling) {
+      drawDuck(this.x, this.y, this.color, this.vx > 0 ? 1 : -1, 'fall');
+      return;
+    }
+    drawDuck(this.x, this.y, this.color, this.vx > 0 ? 1 : -1, 'fly', this.flapState);
+  }
+
+  isHit(x, y) {
+    return Math.abs(x - this.x) < 14 * SCALE && Math.abs(y - this.y) < 12 * SCALE;
+  }
+}
+
+// =========== RELOAD BOX (powerup) ===========
+class ReloadBox {
+  constructor() {
+    // Drift across screen at mid-height
+    const fromLeft = Math.random() < 0.5;
+    this.x = fromLeft ? -20 : W + 20;
+    this.y = 40 + Math.random() * (H * 0.45);
+    this.vx = fromLeft ? 1.2 * SCALE : -1.2 * SCALE;
+    this.vy = 0;
+    this.bob = 0;
+    this.life = 60 * 6; // 6 seconds on screen
+    this.dead = false;
+    this.hit = false;
+    this.hitTimer = 0;
+  }
+
+  update() {
+    if (this.hit) {
+      this.hitTimer++;
+      this.vy += 0.3;
+      this.y += this.vy;
+      if (this.hitTimer > 30) this.dead = true;
+      return;
+    }
+    this.x += this.vx;
+    this.bob += 0.15;
+    this.y += Math.sin(this.bob) * 0.4;
+    this.life--;
+    if (this.life <= 0 || this.x < -30 || this.x > W + 30) this.dead = true;
+  }
+
+  draw() {
+    if (this.hit) {
+      // sparkle on pickup
+      ctx.fillStyle = '#ffeb3b';
+      ctx.font = 'bold 12px "Press Start 2P"';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#000';
+      ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+      ctx.fillText('+RELOAD!', this.x, this.y);
+      ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+      return;
+    }
+    // Pulsing glow halo
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 150);
+    ctx.fillStyle = `rgba(255, 235, 59, ${0.3 * pulse})`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 18 * SCALE, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ammo crate (12x12 pixel art) — scaled
+    ctx.save();
+    ctx.translate(Math.floor(this.x), Math.floor(this.y));
+    ctx.scale(SCALE, SCALE);
+    // shadow
+    drawRect(-8, -6, 16, 12, '#664400');
+    // body
+    drawRect(-7, -5, 14, 10, '#d4a017');
+    drawRect(-7, -5, 14, 2, '#ffd700');
+    // dark band
+    drawRect(-7, -1, 14, 2, '#8b6914');
+    // bullet icons on the box
+    drawRect(-4, 0, 2, 4, '#fff');
+    drawRect(-1, 0, 2, 4, '#fff');
+    drawRect(2, 0, 2, 4, '#fff');
+    // border
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-7, -5, 14, 10);
+
+    // Blinking warning when about to expire
+    if (this.life < 90 && Math.floor(this.life / 8) % 2 === 0) {
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
+      ctx.fillRect(-8, -6, 16, 12);
+    }
+    ctx.restore();
+  }
+
+  isHit(px, py) {
+    return Math.abs(px - this.x) < 12 * SCALE && Math.abs(py - this.y) < 10 * SCALE;
+  }
+}
+
+// =========== DOG ===========
+class Dog {
+  constructor(mode) {
+    this.mode = mode; // 'sniff' | 'jump' | 'laugh' | 'retrieve-hit' | 'retrieve-miss'
+    this.x = 40;
+    this.y = H * 0.75 + 12;  // just below grass line
+    this.timer = 0;
+    this.frame = 0;
+    this.duckColor = 'brown';
+    this.numDucks = 1;
+    this.done = false;
+  }
+
+  update() {
+    this.timer++;
+
+    if (this.mode === 'sniff') {
+      this.x += 0.6 * SCALE;
+      this.frame = Math.floor(this.timer / 8) % 2;
+      // occasional sniff sound
+      if (this.timer % 30 === 0) SFX.sniff();
+      if (this.x > W * 0.55) {
+        this.mode = 'jump';
+        this.timer = 0;
+        this.jumpY = 0;
+        SFX.bark();
+      }
+    } else if (this.mode === 'jump') {
+      this.frame = 0;
+      this.jumpY = -Math.sin((this.timer / 30) * Math.PI) * 30;
+      if (this.timer > 30) {
+        this.done = true; // round starts
+      }
+    } else if (this.mode === 'laugh') {
+      this.frame = Math.floor(this.timer / 12) % 2;
+      if (this.timer > 90) this.done = true;
+    } else if (this.mode === 'retrieve-hit' || this.mode === 'retrieve-miss') {
+      this.popup = Math.min(this.timer / 25, 1);
+      if (this.timer > 90) this.done = true;
+    }
+  }
+
+  draw() {
+    if (this.mode === 'sniff') {
+      drawDog(this.x, this.y, 'sniff', this.frame);
+    } else if (this.mode === 'jump') {
+      drawDog(this.x, this.y + this.jumpY, 'jump', 0);
+    } else if (this.mode === 'laugh') {
+      drawDog(W/2, H/2 + 30, 'laugh', this.frame);
+    } else if (this.mode === 'retrieve-hit') {
+      const popY = H * 0.75 + 12 - this.popup * 50;
+      drawDog(W/2, popY, 'hold-duck', 0, this.duckColor, this.numDucks);
+    } else if (this.mode === 'retrieve-miss') {
+      const popY = H * 0.75 + 12 - this.popup * 50;
+      drawDog(W/2, popY, 'point-laugh', 0);
+    }
+  }
+}
+
+// =========== DRAWING HELPERS ===========
+
+function drawPixel(x, y, color, size = 1) {
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.floor(x), Math.floor(y), size, size);
+}
+
+function drawRect(x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.floor(x), Math.floor(y), w, h);
+}
+
+// Pixel-art Doug head (frowny, gray crew cut, red flannel) - replaces duck sprite
+function drawDuck(cx, cy, color, dir, mode, flap = 0) {
+  // Doug's signature look: gray hair, red checkered flannel, always.
+  // (color param is ignored for outfit, but kept for scoring/point variety logic)
+  const p = {
+    skin: '#fdbcb4',
+    skinShade: '#e89e92',
+    hair: '#9e9e9e',      // gray
+    hairTop: '#616161',   // darker gray edge
+    brow: '#757575',      // medium gray brows
+    flannelA: '#c62828',  // dark red base
+    flannelB: '#8b0000',  // deeper red shade
+    flannelC: '#1a1a1a',  // black-ish weave lines
+    flannelLight: '#ef5350' // highlight thread
+  };
+
+  ctx.save();
+  ctx.translate(Math.floor(cx), Math.floor(cy));
+  ctx.scale(SCALE, SCALE);
+  if (dir < 0) ctx.scale(-1, 1);
+
+  // Helper to draw the flannel checkered pattern in a region
+  // Pattern: dark-red base + black grid lines + occasional brighter red highlights
+  function drawFlannel(x, y, w, h) {
+    // base
+    drawRect(x, y, w, h, p.flannelA);
+    // darker plaid squares (every other 2x2 block)
+    for (let i = 0; i < w; i += 4) {
+      for (let j = 0; j < h; j += 4) {
+        if (((i / 4) + (j / 4)) % 2 === 0) {
+          drawRect(x + i, y + j, 2, 2, p.flannelB);
+        }
+      }
+    }
+    // black weave lines (vertical)
+    for (let i = 1; i < w; i += 4) {
+      for (let j = 0; j < h; j++) {
+        drawPixel(x + i, y + j, p.flannelC, 1);
+      }
+    }
+    // black weave lines (horizontal)
+    for (let j = 1; j < h; j += 4) {
+      for (let i = 0; i < w; i++) {
+        drawPixel(x + i, y + j, p.flannelC, 1);
+      }
+    }
+    // occasional bright thread highlights
+    for (let i = 2; i < w; i += 4) {
+      drawPixel(x + i, y, p.flannelLight, 1);
+    }
+  }
+
+  if (mode === 'fly') {
+    // FLANNEL TORSO/SHIRT
+    drawFlannel(-9, 1, 18, 9);
+    // collar (slightly lighter — collar lapels)
+    drawRect(-3, 0, 2, 2, p.flannelB);
+    drawRect(1, 0, 2, 2, p.flannelB);
+    // a "button" line down center
+    drawPixel(0, 3, '#fff', 1);
+    drawPixel(0, 6, '#fff', 1);
+    drawPixel(0, 9, '#fff', 1);
+
+    // HEAD (rectangular, slightly chunky — Doug-shape)
+    drawRect(-8, -10, 14, 12, p.skin);
+    drawRect(-8, -2, 14, 2, p.skinShade); // chin shadow
+
+    // GRAY CREW CUT — flat top, sides shaved
+    drawRect(-8, -12, 14, 4, p.hair);
+    drawRect(-8, -13, 14, 1, p.hairTop);
+    // hair texture pixels (a few darker bristles)
+    drawRect(-5, -11, 1, 1, p.hairTop);
+    drawRect(-1, -11, 1, 1, p.hairTop);
+    drawRect(3, -11, 1, 1, p.hairTop);
+    // sideburns (short, gray)
+    drawRect(-8, -8, 1, 3, p.hair);
+    drawRect(5, -8, 1, 3, p.hair);
+
+    // EARS
+    drawRect(-9, -6, 1, 3, p.skinShade);
+    drawRect(6, -6, 1, 3, p.skinShade);
+
+    // GRAY ANGRY EYEBROWS
+    drawRect(-5, -6, 3, 1, p.brow);
+    drawRect(-4, -7, 2, 1, p.brow);
+    drawRect(1, -6, 3, 1, p.brow);
+    drawRect(2, -7, 2, 1, p.brow);
+
+    // EYES
+    drawRect(-4, -4, 2, 1, '#fff');
+    drawRect(-3, -4, 1, 1, '#000');
+    drawRect(2, -4, 2, 1, '#fff');
+    drawRect(2, -4, 1, 1, '#000');
+
+    // FROWN
+    drawRect(-3, -1, 1, 1, '#000');
+    drawRect(-2, 0, 4, 1, '#000');
+    drawRect(2, -1, 1, 1, '#000');
+
+    // ARMS in flannel sleeves — flapping
+    if (flap === 0) {
+      // up
+      drawFlannel(-13, -2, 4, 4);
+      drawRect(-14, -4, 2, 2, p.skin); // hand
+      drawFlannel(9, -2, 4, 4);
+      drawRect(13, -4, 2, 2, p.skin);
+    } else if (flap === 1) {
+      // mid
+      drawFlannel(-13, 2, 4, 3);
+      drawRect(-14, 3, 2, 2, p.skin);
+      drawFlannel(9, 2, 4, 3);
+      drawRect(13, 3, 2, 2, p.skin);
+    } else {
+      // down
+      drawFlannel(-12, 4, 4, 4);
+      drawRect(-13, 7, 2, 2, p.skin);
+      drawFlannel(8, 4, 4, 4);
+      drawRect(12, 7, 2, 2, p.skin);
+    }
+  } else if (mode === 'hit') {
+    // STUNNED — X eyes, tongue out
+    drawFlannel(-9, 1, 18, 9);
+    drawPixel(0, 3, '#fff', 1);
+    drawPixel(0, 6, '#fff', 1);
+    drawRect(-8, -10, 14, 12, p.skin);
+    drawRect(-8, -12, 14, 4, p.hair);
+    drawRect(-8, -13, 14, 1, p.hairTop);
+    // X eyes
+    drawRect(-5, -6, 1, 1, '#000');
+    drawRect(-4, -5, 1, 1, '#000');
+    drawRect(-3, -4, 1, 1, '#000');
+    drawRect(-3, -6, 1, 1, '#000');
+    drawRect(-5, -4, 1, 1, '#000');
+    drawRect(2, -6, 1, 1, '#000');
+    drawRect(3, -5, 1, 1, '#000');
+    drawRect(4, -4, 1, 1, '#000');
+    drawRect(4, -6, 1, 1, '#000');
+    drawRect(2, -4, 1, 1, '#000');
+    // tongue
+    drawRect(-2, 0, 4, 2, '#ff5252');
+  } else if (mode === 'fall') {
+    // KO'd, falling — X eyes, mouth open in shock
+    drawFlannel(-9, 1, 18, 9);
+    drawPixel(0, 3, '#fff', 1);
+    drawPixel(0, 6, '#fff', 1);
+    drawRect(-8, -10, 14, 12, p.skin);
+    drawRect(-8, -12, 14, 4, p.hair);
+    drawRect(-8, -13, 14, 1, p.hairTop);
+    // X eyes (left)
+    drawRect(-5, -6, 1, 1, '#000');
+    drawRect(-4, -5, 1, 1, '#000');
+    drawRect(-3, -4, 1, 1, '#000');
+    drawRect(-3, -6, 1, 1, '#000');
+    drawRect(-5, -4, 1, 1, '#000');
+    // X eyes (right)
+    drawRect(2, -6, 1, 1, '#000');
+    drawRect(3, -5, 1, 1, '#000');
+    drawRect(4, -4, 1, 1, '#000');
+    drawRect(4, -6, 1, 1, '#000');
+    drawRect(2, -4, 1, 1, '#000');
+    // shocked open mouth
+    drawRect(-2, 0, 4, 3, '#000');
+    // limp arms in flannel
+    drawFlannel(-13, 6, 4, 3);
+    drawFlannel(9, 6, 4, 3);
+  }
+  ctx.restore();
+}
+
+function drawDog(cx, cy, mode, frame, duckColor, numDucks = 1) {
+  ctx.save();
+  ctx.translate(Math.floor(cx), Math.floor(cy));
+  ctx.scale(SCALE, SCALE);
+
+  if (mode === 'sniff') {
+    // Body
+    drawRect(-10, -10, 20, 10, '#fff');
+    drawRect(-10, -10, 20, 4, '#d2691e'); // brown back
+    // Head/snout reaching forward, alternating
+    const snoutY = frame === 0 ? -8 : -7;
+    drawRect(8, snoutY, 8, 4, '#fff');
+    drawRect(14, snoutY + 1, 2, 2, '#000'); // nose
+    // Ears
+    drawRect(0, -14, 4, 6, '#d2691e');
+    // Eye
+    drawRect(4, -10, 1, 1, '#000');
+    // Legs
+    if (frame === 0) {
+      drawRect(-8, 0, 3, 6, '#fff');
+      drawRect(2, 0, 3, 6, '#fff');
+    } else {
+      drawRect(-6, 0, 3, 6, '#fff');
+      drawRect(4, 0, 3, 6, '#fff');
+    }
+    // Tail
+    drawRect(-12, -10, 4, 2, '#d2691e');
+  } else if (mode === 'jump') {
+    drawRect(-8, -8, 16, 12, '#fff');
+    drawRect(-8, -8, 16, 5, '#d2691e');
+    drawRect(6, -10, 8, 5, '#fff');
+    drawRect(12, -8, 2, 2, '#000');
+    drawRect(-2, -12, 4, 5, '#d2691e');
+    drawRect(-6, 4, 3, 4, '#fff');
+    drawRect(3, 4, 3, 4, '#fff');
+  } else if (mode === 'laugh') {
+    // Big laughing dog face
+    // Body
+    drawRect(-16, 0, 32, 14, '#fff');
+    drawRect(-16, 0, 32, 5, '#d2691e');
+    // Head tilted back
+    drawRect(-10, -12, 20, 14, '#fff');
+    drawRect(-10, -12, 20, 6, '#d2691e');
+    // Ears
+    drawRect(-12, -10, 4, 8, '#a0522d');
+    drawRect(8, -10, 4, 8, '#a0522d');
+    // Closed eyes (laughing)
+    drawRect(-6, -4, 4, 1, '#000');
+    drawRect(-6, -3, 1, 1, '#000');
+    drawRect(-3, -3, 1, 1, '#000');
+    drawRect(2, -4, 4, 1, '#000');
+    drawRect(2, -3, 1, 1, '#000');
+    drawRect(5, -3, 1, 1, '#000');
+    // Big open mouth
+    if (frame === 0) {
+      drawRect(-5, 0, 10, 5, '#000');
+      drawRect(-3, 1, 6, 2, '#ff0000'); // tongue
+    } else {
+      drawRect(-4, 0, 8, 4, '#000');
+      drawRect(-2, 1, 4, 1, '#ff0000');
+    }
+    // "HA HA" text
+    ctx.fillStyle = '#ffeb3b';
+    ctx.font = '10px "Press Start 2P"';
+    ctx.fillText('HA HA!', -20, -16);
+  } else if (mode === 'hold-duck') {
+    // Dog body
+    drawRect(-10, 0, 20, 14, '#fff');
+    drawRect(-10, 0, 20, 5, '#d2691e');
+    // Arms holding duck up
+    drawRect(-12, -2, 4, 8, '#fff');
+    drawRect(8, -2, 4, 8, '#fff');
+    // Head
+    drawRect(-6, -10, 12, 10, '#fff');
+    drawRect(-6, -10, 12, 5, '#d2691e');
+    drawRect(-8, -8, 4, 6, '#a0522d'); // ear
+    drawRect(2, -6, 1, 1, '#000'); // eye
+    drawRect(6, -6, 4, 3, '#fff'); // snout
+    drawRect(9, -5, 1, 1, '#000');
+    // Smiling
+    drawRect(4, -2, 4, 1, '#000');
+    // Held Doug head(s) — gray hair, frowning, red flannel collar
+    if (numDucks >= 1) {
+      // small Doug — head only
+      drawRect(-5, -22, 10, 8, '#fdbcb4');         // skin
+      drawRect(-5, -22, 10, 3, '#9e9e9e');         // gray hair
+      drawRect(-5, -23, 10, 1, '#616161');         // hair top
+      // angry brows
+      drawRect(-4, -19, 2, 1, '#757575');
+      drawRect(1, -19, 2, 1, '#757575');
+      // eyes (X — defeated)
+      drawRect(-3, -17, 1, 1, '#000');
+      drawRect(-2, -16, 1, 1, '#000');
+      drawRect(-2, -17, 1, 1, '#000');
+      drawRect(-3, -16, 1, 1, '#000');
+      drawRect(1, -17, 1, 1, '#000');
+      drawRect(2, -16, 1, 1, '#000');
+      drawRect(2, -17, 1, 1, '#000');
+      drawRect(1, -16, 1, 1, '#000');
+      // frown
+      drawRect(-2, -14, 4, 1, '#000');
+      // tiny red flannel collar peeking under chin
+      drawRect(-4, -14, 8, 2, '#c62828');
+      drawRect(-3, -14, 1, 1, '#1a1a1a');
+      drawRect(0, -14, 1, 1, '#1a1a1a');
+      drawRect(3, -14, 1, 1, '#1a1a1a');
+    }
+    if (numDucks >= 2) {
+      // second Doug, smaller, off to the side
+      drawRect(-15, -20, 8, 6, '#fdbcb4');
+      drawRect(-15, -20, 8, 2, '#9e9e9e');
+      drawRect(-15, -21, 8, 1, '#616161');
+      drawRect(-13, -17, 1, 1, '#000');
+      drawRect(-9, -17, 1, 1, '#000');
+      drawRect(-12, -15, 4, 1, '#000');
+      drawRect(-14, -14, 6, 1, '#c62828');
+    }
+  } else if (mode === 'point-laugh') {
+    // Dog laughing at you, finger pointing up
+    drawRect(-10, 0, 20, 14, '#fff');
+    drawRect(-10, 0, 20, 5, '#d2691e');
+    drawRect(-6, -10, 12, 10, '#fff');
+    drawRect(-6, -10, 12, 5, '#d2691e');
+    drawRect(-8, -8, 4, 6, '#a0522d');
+    // closed laughing eyes
+    drawRect(-3, -6, 3, 1, '#000');
+    drawRect(2, -6, 3, 1, '#000');
+    // Open mouth
+    drawRect(-2, -3, 6, 4, '#000');
+    drawRect(-1, -2, 4, 2, '#ff0000');
+    // Pointing arm
+    drawRect(-14, -16, 4, 16, '#fff');
+    drawRect(-16, -22, 4, 8, '#fff');
+    // text
+    ctx.fillStyle = '#ffeb3b';
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillText('HA HA!', -10, -16);
+  }
+  ctx.restore();
+}
+
+// =========== BACKGROUND ===========
+function drawBackground() {
+  // Sky gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#5c94fc');
+  grad.addColorStop(0.6, '#a8d8ff');
+  grad.addColorStop(0.7, '#fcbcb0');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H * 0.75);
+
+  // Distant mountain silhouette (scales with width)
+  ctx.fillStyle = '#2d5016';
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.6);
+  ctx.lineTo(W * 0.10, H * 0.5);
+  ctx.lineTo(W * 0.21, H * 0.58);
+  ctx.lineTo(W * 0.36, H * 0.45);
+  ctx.lineTo(W * 0.52, H * 0.55);
+  ctx.lineTo(W * 0.68, H * 0.48);
+  ctx.lineTo(W * 0.83, H * 0.56);
+  ctx.lineTo(W, H * 0.5);
+  ctx.lineTo(W, H * 0.75);
+  ctx.lineTo(0, H * 0.75);
+  ctx.closePath();
+  ctx.fill();
+
+  // Closer trees - spread across the width
+  ctx.fillStyle = '#1a3009';
+  const treeCount = Math.max(8, Math.floor(W / 50));
+  for (let i = 0; i < treeCount; i++) {
+    const tx = (i / treeCount) * W + ((i % 2) * 20) + 25;
+    drawTree(tx, H * 0.7);
+  }
+
+  // Pixel clouds (a few, scaled across width)
+  ctx.fillStyle = '#fff';
+  drawCloud(W * 0.15, H * 0.1);
+  drawCloud(W * 0.45, H * 0.08);
+  drawCloud(W * 0.78, H * 0.13);
+  if (W > 500) drawCloud(W * 0.6, H * 0.18);
+
+  // Grass / ground
+  ctx.fillStyle = '#00a800';
+  ctx.fillRect(0, H * 0.75, W, H * 0.25);
+  ctx.fillStyle = '#008800';
+  ctx.fillRect(0, H * 0.75, W, 4);
+
+  // Grass blades pattern
+  ctx.fillStyle = '#005500';
+  for (let i = 0; i < W; i += 6) {
+    const h = 2 + (i * 7 % 4);
+    ctx.fillRect(i, H * 0.75 + 4, 1, h);
+  }
+
+  // Foreground reeds/bushes (scale with W)
+  ctx.fillStyle = '#003300';
+  drawBush(W * 0.08, H - 30, 50, 25);
+  drawBush(W * 0.5, H - 25, 70, 20);
+  drawBush(W * 0.92, H - 30, 50, 25);
+}
+
+function drawTree(x, y) {
+  ctx.fillStyle = '#1a3009';
+  ctx.fillRect(x - 6, y - 12, 12, 14);
+  ctx.fillRect(x - 8, y - 8, 16, 8);
+  ctx.fillStyle = '#3d2817';
+  ctx.fillRect(x - 1, y, 2, 4);
+}
+
+function drawCloud(x, y) {
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x, y + 4, 24, 4);
+  ctx.fillRect(x + 4, y, 16, 4);
+  ctx.fillRect(x + 4, y + 8, 16, 2);
+}
+
+// Doug's speech bubble — chunky retro style with tail pointing down to him
+function drawSpeechBubble(targetX, targetY, text) {
+  ctx.font = 'bold 8px "Press Start 2P"';
+  const metrics = ctx.measureText(text);
+  const padX = 6, padY = 5;
+  const w = Math.ceil(metrics.width) + padX * 2;
+  const h = 14;
+  // Position bubble above, clamp to canvas edges
+  let bx = Math.floor(targetX - w / 2);
+  let by = Math.floor(targetY - h - 8);
+  if (bx < 4) bx = 4;
+  if (bx + w > W - 4) bx = W - 4 - w;
+  if (by < 4) by = 4;
+
+  // Black outline (shadow style)
+  ctx.fillStyle = '#000';
+  ctx.fillRect(bx - 2, by - 2, w + 4, h + 4);
+  // White bubble
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(bx, by, w, h);
+  // Inner border
+  ctx.fillStyle = '#000';
+  ctx.fillRect(bx + 1, by + 1, w - 2, 1); // top
+  ctx.fillRect(bx + 1, by + h - 2, w - 2, 1); // bottom
+  ctx.fillRect(bx + 1, by + 1, 1, h - 2); // left
+  ctx.fillRect(bx + w - 2, by + 1, 1, h - 2); // right
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(bx + 2, by + 2, w - 4, h - 4);
+
+  // Tail pointing down toward Doug
+  const tailX = Math.max(bx + 6, Math.min(bx + w - 6, targetX));
+  ctx.fillStyle = '#000';
+  ctx.fillRect(tailX - 2, by + h, 5, 1);
+  ctx.fillRect(tailX - 1, by + h + 1, 3, 1);
+  ctx.fillRect(tailX, by + h + 2, 1, 1);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(tailX - 1, by + h - 1, 3, 1);
+  ctx.fillRect(tailX, by + h, 1, 1);
+
+  // Text
+  ctx.fillStyle = '#000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, bx + w / 2, by + h / 2);
+}
+
+function drawBush(cx, cy, w, h) {
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, w/2, h/2, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// =========== EFFECTS ===========
+function fireShot(x, y) {
+  state.shotsLeft--;
+  state.shotsFired++;
+  SFX.shot();
+  // muzzle flash
+  state.flashes.push({ x, y, age: 0 });
+  // crosshair flash
+  state.freeze = 3;
+
+  // Check duck hits
+  let hit = false;
+  for (const duck of state.ducks) {
+    if (duck.alive && !duck.falling && duck.hitTimer === 0 && duck.isHit(x, y)) {
+      duck.hitTimer = 15;
+      state.score += duck.points;
+      state.hits++;
+      hit = true;
+      SFX.hit();
+      // schedule the falling whistle
+      setTimeout(() => SFX.fall(), 240);
+      // particles
+      for (let i = 0; i < 12; i++) {
+        state.particles.push({
+          x: duck.x, y: duck.y,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          color: ['#ffeb3b', '#ff9800', '#fff'][Math.floor(Math.random() * 3)],
+          life: 30
+        });
+      }
+      flashFeedback(`+${duck.points}`);
+      break;
+    }
+  }
+  if (!hit) {
+    flashFeedback('MISS!');
+    // Doug taunts you on miss (50% of the time)
+    if (state.bird && state.bird.alive && !state.bird.falling && Math.random() < 0.5) {
+      showTaunt(pickTaunt('miss'), state.bird.x, state.bird.y - 22);
+    }
+  }
+  updateHUD();
+}
+
+function flashFeedback(text) {
+  state.feedback = text;
+  state.feedbackTimer = 40;
+}
+
+// =========== ROUND MANAGEMENT ===========
+function startRound() {
+  state.ducksThisRound = 0;
+  state.ducksHitThisRound = 0;
+  state.roundResults = [];
+  document.getElementById('round').textContent = state.round;
+
+  // Show banner
+  showBanner(`ROUND ${state.round}`);
+  SFX.roundStart();
+  setTimeout(() => {
+    state.dog = new Dog('sniff');
+    state.phase = 'dog-intro';
+  }, 700);
+  updateRoundDisplay();
+}
+
+function spawnNextDuck() {
+  if (state.ducksThisRound >= 5) {
+    endRound();
+    return;
+  }
+  state.ducksThisRound++;
+  state.shotsLeft = 3;
+  const newDuck = new Duck(state.round);
+  state.ducks = [newDuck];
+  state.bird = newDuck;
+  state.phase = 'playing';
+  SFX.quack();
+
+  // Maybe spawn a reload box: ~25% chance from round 2 onward,
+  // and not in back-to-back ducks
+  state.reloadCooldown++;
+  if (state.round >= 2 && state.reloadCooldown >= 2 && Math.random() < 0.25) {
+    state.reloadBox = new ReloadBox();
+    state.reloadCooldown = 0;
+  } else {
+    state.reloadBox = null;
+  }
+
+  updateHUD();
+}
+
+function checkDuckResolved() {
+  if (!state.bird) return;
+  const d = state.bird;
+
+  // Resolved if: dead and landed, escaped, or out of shots and still alive
+  const dead = d.falling && d.landed;
+  const escaped = d.escaped;
+  const outOfShots = state.shotsLeft === 0 && d.alive && !d.falling;
+
+  if (dead) {
+    state.roundResults.push('hit');
+    state.ducksHitThisRound++;
+    updateRoundDisplay();
+    state.bird = null;
+    state.reloadBox = null;
+    state.taunt = null;
+    state.phase = 'dog-retrieve';
+    state.dog = new Dog('retrieve-hit');
+    state.dog.duckColor = d.color;
+    SFX.splat();
+    setTimeout(() => SFX.pickup(), 400);
+  } else if (escaped) {
+    state.roundResults.push('miss');
+    state.ducksMissed++;
+    updateRoundDisplay();
+    state.bird = null;
+    state.reloadBox = null;
+    state.phase = 'dog-laugh';
+    state.dog = new Dog('laugh');
+    SFX.laugh();
+  } else if (outOfShots) {
+    // Out of shots — Doug bolts upward immediately, mocking you on the way out
+    if (!d._escapeStarted) {
+      d._escapeStarted = true;
+      d.vy = -3.5 * SCALE;
+      d.vx *= 0.4;
+      d.escapeTimer = 999;
+      SFX.escape();
+      showTaunt(pickTaunt('outOfShots'), d.x, d.y - 22);
+    }
+  }
+}
+
+function endRound() {
+  state.phase = 'round-end';
+  if (state.ducksHitThisRound >= state.required) {
+    state.score += 1000 * state.ducksHitThisRound; // bonus
+    // Game ends after 3 rounds
+    if (state.round >= 3) {
+      SFX.roundClear();
+      setTimeout(() => showGameOver(true), 1200);
+      return;
+    }
+    state.round++;
+    SFX.roundClear();
+    setTimeout(startRound, 1800);
+  } else {
+    showGameOver(false);
+  }
+}
+
+function showGameOver(won = false) {
+  state.phase = 'game-over';
+  document.getElementById('game-wrap').classList.remove('playing');
+  if (won) {
+    SFX.roundClear();
+  } else {
+    SFX.gameOver();
+  }
+  document.getElementById('endgame-title').textContent = won ? '★ YOU GOT DOUG ★' : 'GAME OVER';
+  document.getElementById('endgame-title').className = won ? 'win' : 'gameover';
+
+  const acc = state.shotsFired > 0 ? Math.round((state.hits / state.shotsFired) * 100) : 0;
+  const verdict = won
+    ? `<span style="color:#00ff41">DOUG HAS BEEN HUNTED.</span><br><span style="color:#ffeb3b">FLOCO IS PROUD.</span><br><br>`
+    : `<span style="color:#ff3030">DOUG ESCAPES TO MOCK YOU ANOTHER DAY.</span><br><br>`;
+  document.getElementById('endgame-stats').innerHTML = verdict + `
+    FINAL SCORE: <span style="color:#00ff41">${state.score.toString().padStart(6, '0')}</span><br>
+    ROUNDS CLEARED: ${won ? 3 : state.round - 1} / 3<br>
+    DOUGS DOWNED: ${state.hits}<br>
+    SHOTS FIRED: ${state.shotsFired}<br>
+    ACCURACY: ${acc}%
+  `;
+  document.getElementById('endgame').classList.add('show');
+}
+
+function showBanner(text) {
+  const b = document.getElementById('round-banner');
+  document.getElementById('banner-text').textContent = text;
+  b.classList.remove('show');
+  void b.offsetWidth;
+  b.classList.add('show');
+  // Hide it completely after the fade so it doesn't block ducks
+  clearTimeout(showBanner._timer);
+  showBanner._timer = setTimeout(() => {
+    b.classList.remove('show');
+  }, 1800);
+}
+
+// =========== HUD ===========
+function updateHUD() {
+  document.getElementById('score').textContent = state.score.toString().padStart(6, '0');
+  // ammo
+  const ammoEl = document.getElementById('ammo');
+  ammoEl.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const b = document.createElement('div');
+    b.className = 'bullet' + (i < state.shotsLeft ? '' : ' spent');
+    ammoEl.appendChild(b);
+  }
+}
+
+function updateRoundDisplay() {
+  const el = document.getElementById('ducks-row');
+  el.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const d = document.createElement('div');
+    d.className = 'duck-icon';
+    if (state.roundResults[i] === 'hit') d.classList.add('hit');
+    else if (state.roundResults[i] === 'miss') d.classList.add('miss');
+    el.appendChild(d);
+  }
+}
+
+// =========== MAIN LOOP ===========
+function loop() {
+  if (state.freeze > 0) state.freeze--;
+
+  // Update
+  if (state.phase === 'playing') {
+    state.ducks.forEach(d => d.update());
+    if (state.reloadBox) {
+      state.reloadBox.update();
+      if (state.reloadBox.dead) state.reloadBox = null;
+    }
+    // Random in-flight taunts
+    if (state.tauntCooldown > 0) state.tauntCooldown--;
+    if (state.bird && state.bird.alive && !state.bird.falling && !state.bird._escapeStarted
+        && state.tauntCooldown === 0 && Math.random() < 0.012) {
+      showTaunt(pickTaunt('flying'), state.bird.x, state.bird.y - 22);
+      state.tauntCooldown = 90; // wait at least 1.5s between random taunts
+    }
+    checkDuckResolved();
+  } else if (state.phase === 'dog-intro') {
+    if (state.dog) {
+      state.dog.update();
+      if (state.dog.done) {
+        state.dog = null;
+        spawnNextDuck();
+      }
+    }
+  } else if (state.phase === 'dog-laugh' || state.phase === 'dog-retrieve') {
+    if (state.dog) {
+      state.dog.update();
+      if (state.dog.done) {
+        state.dog = null;
+        // next duck or end round
+        spawnNextDuck();
+      }
+    }
+  }
+
+  // Update particles
+  state.particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.15;
+    p.life--;
+  });
+  state.particles = state.particles.filter(p => p.life > 0);
+
+  // flashes
+  state.flashes.forEach(f => f.age++);
+  state.flashes = state.flashes.filter(f => f.age < 8);
+
+  if (state.feedbackTimer > 0) state.feedbackTimer--;
+
+  // Render
+  drawBackground();
+
+  // Falling/dead ducks first (behind)
+  state.ducks.forEach(d => {
+    if (d.falling || d.hitTimer > 0) d.draw();
+  });
+
+  // Active ducks
+  state.ducks.forEach(d => {
+    if (d.alive && !d.falling && d.hitTimer === 0) d.draw();
+  });
+
+  // Particles
+  state.particles.forEach(p => {
+    drawPixel(p.x, p.y, p.color, 2);
+  });
+
+  // Reload box (drawn above ducks so it's always visible)
+  if (state.reloadBox) state.reloadBox.draw();
+
+  // Doug's taunt speech bubble — follows Doug while active
+  if (state.taunt) {
+    state.taunt.timer--;
+    // bubble follows the bird
+    if (state.bird && state.bird.alive) {
+      state.taunt.x = state.bird.x;
+      state.taunt.y = state.bird.y - 22;
+    }
+    if (state.taunt.timer > 0) {
+      drawSpeechBubble(state.taunt.x, state.taunt.y, state.taunt.text);
+    } else {
+      state.taunt = null;
+    }
+  }
+
+  // Flashes
+  state.flashes.forEach(f => {
+    const r = 8 + f.age * 2;
+    ctx.fillStyle = `rgba(255, 255, 200, ${1 - f.age / 8})`;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Dog
+  if (state.dog) state.dog.draw();
+
+  // Feedback text
+  if (state.feedbackTimer > 0) {
+    ctx.fillStyle = state.feedback === 'MISS!' ? '#ff3030' : '#ffeb3b';
+    ctx.font = 'bold 14px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000';
+    ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+    ctx.fillText(state.feedback, W/2, 80 - (40 - state.feedbackTimer));
+    ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+  }
+
+  // White flash on shot
+  if (state.freeze > 0) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${state.freeze / 10})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Crosshair (custom cursor)
+  if (state.phase === 'playing') {
+    drawCrosshair(mouse.x, mouse.y);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+function drawCrosshair(x, y) {
+  const s = SCALE;
+  ctx.strokeStyle = '#ff0000';
+  ctx.lineWidth = 1.5 * s;
+  ctx.beginPath();
+  ctx.arc(x, y, 8 * s, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - 12 * s, y); ctx.lineTo(x - 4 * s, y);
+  ctx.moveTo(x + 4 * s, y); ctx.lineTo(x + 12 * s, y);
+  ctx.moveTo(x, y - 12 * s); ctx.lineTo(x, y - 4 * s);
+  ctx.moveTo(x, y + 4 * s); ctx.lineTo(x, y + 12 * s);
+  ctx.stroke();
+  ctx.fillStyle = '#ff0000';
+  ctx.fillRect(x - 1, y - 1, 2 * s, 2 * s);
+}
+
+// =========== INIT ===========
+document.getElementById('start-btn').addEventListener('click', () => {
+  SFX.init();
+  SFX.click();
+  document.getElementById('title-screen').style.display = 'none';
+  document.getElementById('game-wrap').classList.add('playing');
+  state.score = 0;
+  state.round = 1;
+  state.shotsFired = 0;
+  state.hits = 0;
+  state.ducksMissed = 0;
+  state.reloadBox = null;
+  state.reloadCooldown = 0;
+  state.taunt = null;
+  state.tauntCooldown = 0;
+  updateHUD();
+  startRound();
+});
+
+document.getElementById('retry-btn').addEventListener('click', () => {
+  SFX.click();
+  document.getElementById('endgame').classList.remove('show');
+  document.getElementById('game-wrap').classList.add('playing');
+  state.score = 0;
+  state.round = 1;
+  state.shotsFired = 0;
+  state.hits = 0;
+  state.ducksMissed = 0;
+  state.reloadBox = null;
+  state.reloadCooldown = 0;
+  state.taunt = null;
+  state.tauntCooldown = 0;
+  updateHUD();
+  startRound();
+});
+
+updateHUD();
+updateRoundDisplay();
+loop();
+
+// Mute button + M key
+const muteBtn = document.getElementById('mute-btn');
+muteBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const muted = !SFX.isMuted();
+  SFX.setMuted(muted);
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+  muteBtn.classList.toggle('muted', muted);
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'm' || e.key === 'M') muteBtn.click();
+});
+</script>
+</body>
+</html>
