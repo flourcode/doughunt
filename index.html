@@ -1158,11 +1158,25 @@ class Dog {
     } else if (this.mode === 'laugh') {
       drawDog(W/2, H/2 + 30, 'laugh', this.frame);
     } else if (this.mode === 'retrieve-hit') {
-      const popY = H * 0.75 + 12 - this.popup * 50;
+      // Dog emerges from behind the grass. At popup=0 he's fully hidden, at popup=1 his torso peeks out.
+      const grassY = H * 0.75;
+      // Center starts ~16px below grass, ends ~18px above grass
+      const popY = grassY + 16 * SCALE - this.popup * 34 * SCALE;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, W, grassY + 2);
+      ctx.clip();
       drawDog(W/2, popY, 'hold-duck', 0, this.duckColor, this.numDucks);
+      ctx.restore();
     } else if (this.mode === 'retrieve-miss') {
-      const popY = H * 0.75 + 12 - this.popup * 50;
+      const grassY = H * 0.75;
+      const popY = grassY + 16 * SCALE - this.popup * 34 * SCALE;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, W, grassY + 2);
+      ctx.clip();
       drawDog(W/2, popY, 'point-laugh', 0);
+      ctx.restore();
     }
   }
 }
