@@ -65,12 +65,7 @@
   }
 
   body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.7) 100%);
-    pointer-events: none;
-    z-index: 999;
+    content: none;
   }
 
   #game-wrap {
@@ -970,14 +965,12 @@ class Duck {
       this.vy = -Math.abs(this.vy) - 0.4 * SCALE;
     }
 
-    // After a few seconds, fly upward to escape
+    // After a few seconds in flight, Doug naturally bolts upward (escape).
+    // Hand off to the dedicated escape branch instead of fighting the bounce code.
     this.escapeTimer++;
     if (this.escapeTimer > 60 * 7) {
-      this.vy = Math.min(this.vy - 0.05, -1.5 * SCALE);
-    }
-    if (this.y < -20) {
-      this.escaped = true;
-      this.alive = false;
+      this._escapeStarted = true;
+      return;
     }
 
     // Random direction shifts — zigzag in both axes, never let him idle
@@ -1443,41 +1436,51 @@ function drawDog(cx, cy, mode, frame, duckColor, numDucks = 1) {
     drawRect(9, -5, 1, 1, '#000');
     // Smiling
     drawRect(4, -2, 4, 1, '#000');
-    // Held Doug head(s) — gray hair, frowning, red flannel collar
+    // Held Doug head(s) — gray hair, X eyes, frowning, red flannel collar
     if (numDucks >= 1) {
-      // small Doug — head only
-      drawRect(-5, -22, 10, 8, '#fdbcb4');         // skin
-      drawRect(-5, -22, 10, 3, '#9e9e9e');         // gray hair
-      drawRect(-5, -23, 10, 1, '#616161');         // hair top
+      // small Doug — head only, slightly bigger so detail reads
+      drawRect(-6, -24, 12, 10, '#fdbcb4');        // skin (face)
+      drawRect(-6, -24, 12, 4, '#9e9e9e');         // gray hair
+      drawRect(-6, -25, 12, 1, '#616161');         // hair top edge
       // angry brows
-      drawRect(-4, -19, 2, 1, '#757575');
-      drawRect(1, -19, 2, 1, '#757575');
-      // eyes (X — defeated)
+      drawRect(-4, -20, 2, 1, '#757575');
+      drawRect(2, -20, 2, 1, '#757575');
+      // X eyes (proper diagonal pattern, left)
+      drawRect(-4, -18, 1, 1, '#000');
       drawRect(-3, -17, 1, 1, '#000');
       drawRect(-2, -16, 1, 1, '#000');
-      drawRect(-2, -17, 1, 1, '#000');
-      drawRect(-3, -16, 1, 1, '#000');
-      drawRect(1, -17, 1, 1, '#000');
+      drawRect(-2, -18, 1, 1, '#000');
+      drawRect(-4, -16, 1, 1, '#000');
+      // X eyes (right)
+      drawRect(2, -18, 1, 1, '#000');
+      drawRect(3, -17, 1, 1, '#000');
+      drawRect(4, -16, 1, 1, '#000');
+      drawRect(4, -18, 1, 1, '#000');
       drawRect(2, -16, 1, 1, '#000');
-      drawRect(2, -17, 1, 1, '#000');
-      drawRect(1, -16, 1, 1, '#000');
       // frown
-      drawRect(-2, -14, 4, 1, '#000');
+      drawRect(-2, -15, 4, 1, '#000');
+      drawRect(-3, -14, 1, 1, '#000');
+      drawRect(2, -14, 1, 1, '#000');
       // tiny red flannel collar peeking under chin
-      drawRect(-4, -14, 8, 2, '#c62828');
+      drawRect(-5, -14, 10, 2, '#c62828');
       drawRect(-3, -14, 1, 1, '#1a1a1a');
       drawRect(0, -14, 1, 1, '#1a1a1a');
       drawRect(3, -14, 1, 1, '#1a1a1a');
     }
     if (numDucks >= 2) {
       // second Doug, smaller, off to the side
-      drawRect(-15, -20, 8, 6, '#fdbcb4');
-      drawRect(-15, -20, 8, 2, '#9e9e9e');
-      drawRect(-15, -21, 8, 1, '#616161');
-      drawRect(-13, -17, 1, 1, '#000');
-      drawRect(-9, -17, 1, 1, '#000');
+      drawRect(-16, -20, 8, 6, '#fdbcb4');
+      drawRect(-16, -20, 8, 2, '#9e9e9e');
+      drawRect(-16, -21, 8, 1, '#616161');
+      // mini X eyes
+      drawRect(-14, -17, 1, 1, '#000');
+      drawRect(-13, -18, 1, 1, '#000');
+      drawRect(-13, -16, 1, 1, '#000');
+      drawRect(-10, -17, 1, 1, '#000');
+      drawRect(-9, -18, 1, 1, '#000');
+      drawRect(-9, -16, 1, 1, '#000');
       drawRect(-12, -15, 4, 1, '#000');
-      drawRect(-14, -14, 6, 1, '#c62828');
+      drawRect(-15, -14, 7, 1, '#c62828');
     }
   } else if (mode === 'point-laugh') {
     // Dog laughing at you, finger pointing up
@@ -1738,6 +1741,7 @@ function checkDuckResolved() {
     state.ducksHitThisRound++;
     updateRoundDisplay();
     state.bird = null;
+    state.ducks = [];           // remove the landed Doug — the dog has him now
     state.reloadBox = null;
     state.taunt = null;
     state.phase = 'dog-retrieve';
@@ -1750,6 +1754,7 @@ function checkDuckResolved() {
     state.ducksMissed++;
     updateRoundDisplay();
     state.bird = null;
+    state.ducks = [];
     state.reloadBox = null;
     state.phase = 'dog-laugh';
     state.dog = new Dog('laugh');
