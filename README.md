@@ -14,7 +14,9 @@
 
 In the year of our Lord 1984, Nintendo released a game called *Duck Hunt*. It was about ducks. You shot at the ducks. A dog laughed at you. A simpler time.
 
-It is now no longer 1984. The ducks have evolved. They have donned **red checkered flannel**. They have grown **gray crew cuts**. They have learned **trash talk**. They have, against all biological precedent, become **Doug**.
+It is now no longer 1984. The ducks have evolved. They have donned **red checkered flannel**. They have grown **gray crew cuts**. They have memorized **all sixteen Leadership Principles**. They have, against all biological precedent, become **Doug**.
+
+Doug will dive deep on you. Doug has a bias for action. Doug, against your express wishes, is going to disagree and commit.
 
 This repository contains the only known countermeasure.
 
@@ -43,13 +45,13 @@ Hand-crafted from individual pixels using the ancient art of `ctx.fillRect()`. E
 - **Full 3-frame wing-arm flapping animation** because Doug, in this universe, has decided to fly
 
 ### 💬 Doug Says Things
-Doug is equipped with **27 unique trash-talk lines** delivered via authentic 8-bit speech bubbles. Categories include:
+Doug is equipped with **28 unique trash-talk lines** delivered via authentic 8-bit speech bubbles, all sourced from the corporate liturgy of his and the developer's shared former employer. Categories include:
 
-- **Mid-flight mocking** ("MISS ME?", "L + RATIO", "MY GRANDMA SHOOTS BETTER")
-- **Post-miss humiliation** ("WHIFFED IT!", "AIR BALL", "SKILL ISSUE")
-- **Triumphant escape** ("ADIOS, AMIGO!", "GG NO RE", "SMELL YA LATER")
+- **Mid-flight LP evangelism** ("DELIVER RESULTS!", "WHERE'S THE OWNERSHIP?", "DISAGREE & COMMIT", "I'M RIGHT, A LOT")
+- **Post-miss performance review** ("NEEDS A PIP", "MISSING THE BAR", "TIER 3 PERFORMER", "ESCALATE TO YOUR SKIP")
+- **Triumphant escape** ("PEACE — I'M VESTED", "RTO YOURSELF", "I'LL BE IN MY 1:1", "BACK TO THE DOC MINES")
 
-Speech bubbles follow Doug as he flies and clamp to canvas edges so his insults are always legible. We will not be silencing him.
+Speech bubbles follow Doug as he flies and clamp to canvas edges so his insults are always legible. We will not be silencing him. He has too many learnings to share.
 
 ### 🐕 The Dog
 A separate, non-Doug entity. Sniffs through the grass. Leaps up to flush Doug from cover. Pops up holding a **tiny defeated Doug head with X eyes** when you score a hit. Laughs at you when you don't. The dog is on your side. Probably.
@@ -145,7 +147,7 @@ Alternatively, you can download `duckhunt.html` and double-click it. We are not 
 | **File count** | One (1) |
 | **Bundle size** | Approximately 75 KB. Smaller than the average React project's `node_modules` lockfile entry for a single dependency. |
 | **Doug count** | 15 per playthrough |
-| **Trash talk lines** | 27 unique strings, more if you count permutations |
+| **Trash talk lines** | 28 unique LP-coded insults, peer-reviewed |
 | **Frames per second** | 60, locked, on basically anything from the last decade |
 | **Browser support** | Anything that supports `<canvas>` and Web Audio. So, all of them. |
 
@@ -153,13 +155,14 @@ Alternatively, you can download `duckhunt.html` and double-click it. We are not 
 
 ## 🎨 ART DIRECTION
 
-The visual language of *Doug Hunt* draws on three primary influences:
+The visual language of *Doug Hunt* draws on four primary influences:
 
 1. **The original 1984 NES Duck Hunt** for layout, dog behavior, gradient skies, and the fundamental concept of being mocked by a small dog.
 2. **A Bass Pro Shops circular from 2003**, for Doug's wardrobe.
 3. **Pure spite**, for everything else.
+4. **A particularly aggressive 6-page narrative document Doug once wrote**, for the trash talk.
 
-All sprites are drawn at base resolution and uniformly scaled at runtime. No PNGs. No SVGs. No image assets of any kind. Every pixel is computed.
+All sprites are drawn at base resolution and uniformly scaled at runtime. No PNGs. No SVGs. No image assets of any kind. Every pixel is computed. We are operating with extreme **frugality**.
 
 ---
 
@@ -175,15 +178,17 @@ All sprites are drawn at base resolution and uniformly scaled at runtime. No PNG
 ## 🤝 CONTRIBUTING
 
 We welcome pull requests, particularly those that:
-- Add more trash-talk lines (the more specific to Doug personally, the better)
+- Add more LP-coded trash-talk lines (especially deep cuts: "TWO-PIZZA TEAM," "ANDON CORD," "NARRATIVE NOT NUMBERED")
 - Implement Round 4: Doug Strikes Back
 - Add a "shotgun" sprite that Doug can hold *back*
 - Replace the dog with a different small hunting breed
+- Add a Connections-style meta-game where Doug grades your performance against the LP rubric
 
 We do not welcome pull requests that:
 - Add a build system
 - Migrate any part of this to TypeScript
 - Suggest "rewriting it in React"
+- Add a 6-page narrative explaining why we should rewrite it in React
 - Defend Doug
 
 ---
@@ -208,6 +213,7 @@ This software is provided "AS IS", "AS DOUG", and "AS IS DOUG" with no warranty 
 - **Doug**, for being so visually distinctive that he was effectively asking for it.
 - **The dog**, for unwavering professional service.
 - **Web Audio API**, for letting us synthesize a duck's quack out of pure mathematics.
+- **A certain large e-commerce company in Seattle**, for providing the script.
 - **Coffee**.
 
 ---
