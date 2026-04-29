@@ -237,7 +237,8 @@
   }
   #leaderboard .lb-rank {
     color: #ffeb3b;
-    width: 28px;
+    width: 36px;
+    font-size: 11px;
   }
   #leaderboard .lb-init {
     color: #00ff41;
@@ -246,6 +247,8 @@
   }
   #leaderboard .lb-score {
     color: #fff;
+    width: 70px;
+    text-align: right;
   }
 
   /* Initials entry modal */
@@ -298,19 +301,6 @@
     text-shadow: 0 0 10px #ffeb3b;
   }
 
-  .start-btn.daily {
-    background: #ffeb3b;
-    color: #000;
-    border-color: #000;
-    margin-top: 10px;
-    font-size: 14px;
-    text-shadow: none;
-    box-shadow: 6px 6px 0 #c8a200;
-  }
-  .start-btn.daily:hover {
-    background: #fff59d;
-    box-shadow: 8px 8px 0 #c8a200;
-  }
   .start-btn.share {
     background: #2196f3;
     color: #fff;
@@ -589,10 +579,6 @@
       padding: 14px 22px;
       box-shadow: 4px 4px 0 #000;
     }
-    .start-btn.daily {
-      font-size: 12px;
-      box-shadow: 4px 4px 0 #c8a200;
-    }
     .start-btn.share {
       font-size: 12px;
     }
@@ -694,7 +680,6 @@
       &gt; SHOOT GOLD CRATES TO RELOAD
     </div>
     <button class="start-btn" id="start-btn">▶ PRESS START</button>
-    <button class="start-btn daily" id="daily-btn">★ DAILY DOUG</button>
     <div class="controls-hint">CLICK TO SHOOT &nbsp;•&nbsp; DRAG TO AIM, LIFT TO FIRE &nbsp;•&nbsp; M = MUTE</div>
   </div>
 
@@ -967,9 +952,7 @@ const state = {
   bestCombo: 0,      // best combo this run
   comboFloater: null,// {text, timer, x, y} for combo notification
   highScore: 0,      // persisted best score across sessions
-  scoreFloaters: [], // {text, x, y, vy, life, color} - score popups on hits
-  isDaily: false,    // playing the daily challenge?
-  dailySeed: 0       // RNG seed for the daily run
+  scoreFloaters: [] // {text, x, y, vy, life, color} - score popups on hits
 };
 
 // Doug's trash talk pool — Amazon Leadership Principles edition
@@ -1024,39 +1007,18 @@ const SAVE_KEY = 'doughunt_v1';
 function loadSave() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return { highScore: 0, totalDougs: 0, bestCombo: 0, dailyDate: '', dailyScore: 0 };
+    if (!raw) return { highScore: 0, totalDougs: 0, bestCombo: 0 };
     return JSON.parse(raw);
   } catch (e) {
-    return { highScore: 0, totalDougs: 0, bestCombo: 0, dailyDate: '', dailyScore: 0 };
+    return { highScore: 0, totalDougs: 0, bestCombo: 0 };
   }
 }
 function writeSave(data) {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) {}
 }
 
-// =========== SEEDED RNG (for daily challenge) ===========
-// Mulberry32 — small, fast, deterministic
-let _rng = Math.random;
-function seedRng(seed) {
-  let t = seed >>> 0;
-  _rng = function() {
-    t = (t + 0x6D2B79F5) >>> 0;
-    let r = t;
-    r = Math.imul(r ^ (r >>> 15), r | 1);
-    r ^= r + Math.imul(r ^ (r >>> 7), r | 61);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function clearRng() { _rng = Math.random; }
-function rng() { return _rng(); }
-function getDailySeed() {
-  const d = new Date();
-  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-}
-function getDailyDateStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
+// Just use Math.random — keeping rng() as an alias for cleanliness
+const rng = Math.random;
 
 const mouse = { x: W/2, y: H/2, down: false };
 
@@ -2082,26 +2044,17 @@ function showGameOver(won = false) {
   }
   save.totalDougs = (save.totalDougs || 0) + state.hits;
   if (state.bestCombo > (save.bestCombo || 0)) save.bestCombo = state.bestCombo;
-  // Save daily separately so daily score is independent of regular high
-  if (state.isDaily) {
-    const today = getDailyDateStr();
-    if (save.dailyDate !== today || state.score > (save.dailyScore || 0)) {
-      save.dailyDate = today;
-      save.dailyScore = state.score;
-    }
-  }
   writeSave(save);
 
-  document.getElementById('endgame-title').textContent = won ? 'YOU RAISED THE BAR!' : 'GAME OVER';
+  document.getElementById('endgame-title').textContent = won ? '★ YOU RAISED THE BAR! ★' : 'GAME OVER';
   document.getElementById('endgame-title').className = won ? 'win' : 'gameover';
 
   const acc = state.shotsFired > 0 ? Math.round((state.hits / state.shotsFired) * 100) : 0;
   const newHighBanner = isNewHigh
     ? `<div style="color:#ffeb3b;font-size:1.3em;margin-bottom:10px;animation:blink 0.5s infinite step-end;">★ NEW HIGH SCORE ★</div>`
     : '';
-  const dailyTag = state.isDaily ? ' <span style="color:#ffeb3b">[DAILY]</span>' : '';
   document.getElementById('endgame-stats').innerHTML = newHighBanner + `
-    SCORE${dailyTag}: <span style="color:#00ff41">${state.score.toString().padStart(6, '0')}</span><br>
+    SCORE: <span style="color:#00ff41">${state.score.toString().padStart(6, '0')}</span><br>
     BEST: <span style="color:#ffeb3b">${(save.highScore || 0).toString().padStart(6, '0')}</span><br>
     ACCURACY: ${acc}%
   `;
@@ -2118,7 +2071,7 @@ function showGameOver(won = false) {
 async function checkLeaderboardEligibility(score) {
   try {
     const top = await getLeaderboard(true);
-    const qualifies = top.length < 10 || score > (top[top.length - 1]?.score || 0);
+    const qualifies = top.length < 5 || score > (top[top.length - 1]?.score || 0);
     if (qualifies) {
       // Show the initials modal after a brief delay so the user sees the game-over first
       setTimeout(() => promptForInitials(score), 800);
@@ -2129,7 +2082,7 @@ async function checkLeaderboardEligibility(score) {
 function promptForInitials(score) {
   const modal = document.getElementById('initials-modal');
   const input = document.getElementById('initials-input');
-  document.getElementById('initials-title').textContent = `★ TOP 10! SCORE: ${score.toString().padStart(6, '0')} ★`;
+  document.getElementById('initials-title').textContent = `★ TOP 5! SCORE: ${score.toString().padStart(6, '0')} ★`;
   input.value = '';
   modal.classList.add('show');
   setTimeout(() => input.focus(), 100);
@@ -2139,9 +2092,8 @@ function setupShareButton(won) {
   const btn = document.getElementById('share-btn');
   if (!btn) return;
   const acc = state.shotsFired > 0 ? Math.round((state.hits / state.shotsFired) * 100) : 0;
-  const tag = state.isDaily ? `Daily Doug ${getDailyDateStr()}` : 'Doug Hunt';
   const result = won ? 'GOT DOUG ✓' : `Round ${state.round - 1}/3`;
-  const shareText = `🎯 ${tag}\n${result}\nScore: ${state.score.toString().padStart(6,'0')}\nAccuracy: ${acc}%\nBest combo: ${state.bestCombo}x\n\nflourcode.github.io`;
+  const shareText = `🎯 Doug Hunt\n${result}\nScore: ${state.score.toString().padStart(6,'0')}\nAccuracy: ${acc}%\nBest combo: ${state.bestCombo}x\n\nflourcode.github.io/doughunt`;
   btn.onclick = async () => {
     SFX.click();
     if (navigator.share) {
@@ -2384,7 +2336,7 @@ function drawCrosshair(x, y) {
 // =========== LEADERBOARD (shared, via JSONBin.io) ===========
 // SETUP: Create a free public bin at https://jsonbin.io with content {"scores": []}
 // Then paste your bin ID below. Leave as null to disable shared leaderboard.
-const LEADERBOARD_BIN_ID = 69f1f617aaba8821974fd193; // <-- replace with your bin id'
+const LEADERBOARD_BIN_ID = '69f1f617aaba8821974fd193'; // <-- replace with your bin
 const LEADERBOARD_URL = LEADERBOARD_BIN_ID
   ? `https://api.jsonbin.io/v3/b/${LEADERBOARD_BIN_ID}`
   : null;
@@ -2464,9 +2416,11 @@ async function renderLeaderboard() {
     el.innerHTML = '<div class="lb-title">★ TOP HUNTERS ★</div><div class="lb-loading">BE THE FIRST!</div>';
     return;
   }
+  // Amazon-style ratings, top to bottom
+  const ranks = ['TT', 'HV3', 'HV2', 'HV1', 'LE'];
   let html = '<div class="lb-title">★ TOP HUNTERS ★</div>';
   scores.slice(0, 5).forEach((s, i) => {
-    const rank = (i + 1).toString().padStart(2, '0');
+    const rank = ranks[i] || '—';
     html += `<div class="lb-row"><span class="lb-rank">${rank}</span><span class="lb-init">${s.initials}</span><span class="lb-score">${s.score.toString().padStart(6, '0')}</span></div>`;
   });
   el.innerHTML = html;
@@ -2482,18 +2436,10 @@ function refreshTitleScreenStats() {
   } else {
     row.style.display = 'none';
   }
-  // Daily button label
-  const today = getDailyDateStr();
-  const dailyBtn = document.getElementById('daily-btn');
-  if (save.dailyDate === today && save.dailyScore > 0) {
-    dailyBtn.textContent = `★ DAILY: ${save.dailyScore.toString().padStart(6,'0')}`;
-  } else {
-    dailyBtn.textContent = '★ DAILY DOUG';
-  }
   renderLeaderboard();
 }
 
-function startGame(daily = false) {
+function startGame() {
   SFX.init();
   SFX.click();
   document.getElementById('title-screen').style.display = 'none';
@@ -2511,18 +2457,11 @@ function startGame(daily = false) {
   state.bestCombo = 0;
   state.scoreFloaters = [];
   state.comboFloater = null;
-  state.isDaily = daily;
-  if (daily) {
-    seedRng(getDailySeed());
-  } else {
-    clearRng();
-  }
   updateHUD();
   startRound();
 }
 
-document.getElementById('start-btn').addEventListener('click', () => startGame(false));
-document.getElementById('daily-btn').addEventListener('click', () => startGame(true));
+document.getElementById('start-btn').addEventListener('click', startGame);
 
 // Initials submission
 document.getElementById('initials-submit').addEventListener('click', async () => {
