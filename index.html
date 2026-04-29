@@ -2110,7 +2110,7 @@ function showGameOver(won = false) {
   document.getElementById('endgame').classList.add('show');
 
   // If we have a leaderboard configured and the score qualifies for top 10, prompt for initials
-  if (LEADERBOARD_URL && state.score > 0) {
+  if (SCORES_READ_URL && state.score > 0) {
     checkLeaderboardEligibility(state.score);
   }
 }
@@ -2379,16 +2379,14 @@ function drawCrosshair(x, y) {
 }
 
 // =========== INIT ===========
-// =========== LEADERBOARD (shared, via JSONBin.io) ===========
-// SETUP: Create a free public bin at https://jsonbin.io with content {"scores": []}
-// Then paste your bin ID below. Leave as null to disable shared leaderboard.
-const LEADERBOARD_BIN_ID = '69f1f617aaba8821974fd193';
-const LEADERBOARD_URL = LEADERBOARD_BIN_ID
-  ? `https://api.jsonbin.io/v3/b/${LEADERBOARD_BIN_ID}`
-  : null;
-const FETCH_TIMEOUT_MS = 20000; // 20s — JSONBin's free tier can be very slow on cold starts
+// =========== LEADERBOARD (S3 read + Lambda write) ===========
+// Reads happen directly from a public S3 object (~50ms). Writes go through
+// a Lambda Function URL that validates input and updates the file.
+const SCORES_READ_URL = 'https://doughunt-leaderboard.s3.amazonaws.com/scores.json';
+const SCORES_WRITE_URL = 'https://gxfbqyqrfebqgdtyinwjma6y3m0hekgq.lambda-url.us-east-1.on.aws/';
+const FETCH_TIMEOUT_MS = 8000; // 8s — way more than needed but a safety net
 
-// Helper: fetch with hard timeout so we never hang on slow JSONBin
+// Helper: fetch with hard timeout so we never hang
 async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ms);
@@ -2398,7 +2396,6 @@ async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
     return res;
   } catch (e) {
     clearTimeout(timeoutId);
-    // Make abort errors more readable in the console
     if (e.name === 'AbortError' || /aborted/.test(e.message || '')) {
       throw new Error(`request timed out after ${ms}ms`);
     }
@@ -2407,61 +2404,54 @@ async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
 }
 
 async function fetchLeaderboard() {
-  if (!LEADERBOARD_URL) return [];
+  if (!SCORES_READ_URL) return [];
   try {
-    const res = await fetchWithTimeout(LEADERBOARD_URL + '/latest', { cache: 'no-store' });
+    // Cache-busting query param so we always get fresh data, never a stale CDN copy
+    const res = await fetchWithTimeout(SCORES_READ_URL + '?t=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw new Error('fetch failed: ' + res.status);
     const json = await res.json();
-    const scores = (json.record && json.record.scores) || [];
-    const cleaned = scores
+    const scores = json.scores || [];
+    return scores
       .filter(s => s && typeof s.score === 'number' && typeof s.initials === 'string')
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-    return cleaned;
   } catch (e) {
-    console.warn('Leaderboard fetch failed/timed out:', e.message);
-    return null; // null means "network failed" — different from "empty"
+    console.warn('Leaderboard fetch failed:', e.message);
+    return null;
   }
 }
 
 async function submitScore(initials, score) {
-  if (!LEADERBOARD_URL) return false;
+  if (!SCORES_WRITE_URL) return false;
   try {
     const cleanInitials = (initials || '???').toUpperCase().slice(0, 3).replace(/[^A-Z0-9]/g, '?');
-    // Read existing
-    const res = await fetchWithTimeout(LEADERBOARD_URL + '/latest', { cache: 'no-store' });
-    const json = await res.json();
-    const existing = (json.record && json.record.scores) || [];
-    existing.push({
-      initials: cleanInitials, score: score,
-      date: new Date().toISOString().slice(0, 10)
-    });
-    existing.sort((a, b) => b.score - a.score);
-    const trimmed = existing.slice(0, 50);
-    // Write back
-    const putRes = await fetchWithTimeout(LEADERBOARD_URL, {
-      method: 'PUT',
+    const res = await fetchWithTimeout(SCORES_WRITE_URL, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scores: trimmed })
+      body: JSON.stringify({ initials: cleanInitials, score: score })
     });
-    if (putRes.ok) {
-      // Update in-memory cache so the rest of this session sees the new score immediately
-      _leaderboardCache = trimmed.slice(0, 10);
+    if (!res.ok) {
+      console.warn('Submit returned ' + res.status);
+      return false;
+    }
+    const json = await res.json();
+    if (json.ok && Array.isArray(json.scores)) {
+      // Lambda returned the updated top 10 — use it directly so we don't need a second fetch
+      _leaderboardCache = json.scores;
       _leaderboardCacheTime = Date.now();
     }
-    return putRes.ok;
+    return true;
   } catch (e) {
-    console.warn('Leaderboard submit failed/timed out:', e.message);
+    console.warn('Leaderboard submit failed:', e.message);
     return false;
   }
 }
 
 // In-memory cache (this session only — does NOT persist to localStorage).
-// Short TTL so the leaderboard stays fresh across rounds.
 let _leaderboardCache = null;
 let _leaderboardCacheTime = 0;
 let _leaderboardFetching = false;
-const CACHE_TTL_MS = 15000; // 15s — short enough to feel fresh
+const CACHE_TTL_MS = 15000;
 
 async function getLeaderboard(forceRefresh = false) {
   const now = Date.now();
@@ -2474,20 +2464,17 @@ async function getLeaderboard(forceRefresh = false) {
     _leaderboardCacheTime = now;
     return fresh;
   }
-  // Network failed — return whatever in-memory cache we have, or empty
   return _leaderboardCache || [];
 }
 
-// Kick off a background fetch so the in-memory cache is warm by the time it's needed
 function prewarmLeaderboard() {
-  if (!LEADERBOARD_URL || _leaderboardFetching) return;
+  if (!SCORES_READ_URL || _leaderboardFetching) return;
   _leaderboardFetching = true;
   fetchLeaderboard().then(scores => {
     _leaderboardFetching = false;
     if (scores !== null) {
       _leaderboardCache = scores;
       _leaderboardCacheTime = Date.now();
-      // If title screen is currently visible, refresh its display
       const titleEl = document.getElementById('title-screen');
       if (titleEl && titleEl.style.display !== 'none') {
         renderLeaderboardFromCache();
@@ -2496,11 +2483,10 @@ function prewarmLeaderboard() {
   }).catch(() => { _leaderboardFetching = false; });
 }
 
-// Render whatever's in the in-memory cache. If empty and we're fetching, show LOADING.
 function renderLeaderboardFromCache() {
   const el = document.getElementById('leaderboard');
   if (!el) return;
-  if (!LEADERBOARD_URL) {
+  if (!SCORES_READ_URL) {
     el.style.display = 'none';
     return;
   }
@@ -2526,10 +2512,9 @@ function renderLeaderboardFromCache() {
   el.innerHTML = html;
 }
 
-// Render whatever's currently cached, then trigger a background refresh
 function renderLeaderboard() {
   renderLeaderboardFromCache();
-  if (LEADERBOARD_URL) prewarmLeaderboard();
+  if (SCORES_READ_URL) prewarmLeaderboard();
 }
 
 function refreshTitleScreenStats() {
