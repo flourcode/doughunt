@@ -2386,7 +2386,7 @@ const LEADERBOARD_BIN_ID = '69f1f617aaba8821974fd193';
 const LEADERBOARD_URL = LEADERBOARD_BIN_ID
   ? `https://api.jsonbin.io/v3/b/${LEADERBOARD_BIN_ID}`
   : null;
-const FETCH_TIMEOUT_MS = 5000;
+const FETCH_TIMEOUT_MS = 20000; // 20s — JSONBin's free tier can be very slow on cold starts
 
 // Helper: fetch with hard timeout so we never hang on slow JSONBin
 async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
@@ -2398,6 +2398,10 @@ async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
     return res;
   } catch (e) {
     clearTimeout(timeoutId);
+    // Make abort errors more readable in the console
+    if (e.name === 'AbortError' || /aborted/.test(e.message || '')) {
+      throw new Error(`request timed out after ${ms}ms`);
+    }
     throw e;
   }
 }
