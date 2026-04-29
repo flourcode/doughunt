@@ -2116,14 +2116,13 @@ function showGameOver(won = false) {
 }
 
 async function checkLeaderboardEligibility(score) {
-  try {
-    const top = await getLeaderboard(true);
-    const qualifies = top.length < 5 || score > (top[top.length - 1]?.score || 0);
-    if (qualifies) {
-      // Show the initials modal after a brief delay so the user sees the game-over first
-      setTimeout(() => promptForInitials(score), 800);
-    }
-  } catch (e) {}
+  // Use in-memory cache (pre-warmed on page load, refreshed throughout session).
+  // If cache is empty, the score qualifies — we'll find out for sure on submit.
+  const top = _leaderboardCache || [];
+  const qualifies = top.length < 5 || score > (top[Math.min(4, top.length - 1)]?.score || 0);
+  if (qualifies) {
+    setTimeout(() => promptForInitials(score), 800);
+  }
 }
 
 function promptForInitials(score) {
@@ -2383,73 +2382,118 @@ function drawCrosshair(x, y) {
 // =========== LEADERBOARD (shared, via JSONBin.io) ===========
 // SETUP: Create a free public bin at https://jsonbin.io with content {"scores": []}
 // Then paste your bin ID below. Leave as null to disable shared leaderboard.
-const LEADERBOARD_BIN_ID = '69f1f617aaba8821974fd193'; // <-- replace with your bin
+const LEADERBOARD_BIN_ID = '69f1f617aaba8821974fd193';
 const LEADERBOARD_URL = LEADERBOARD_BIN_ID
   ? `https://api.jsonbin.io/v3/b/${LEADERBOARD_BIN_ID}`
   : null;
+const FETCH_TIMEOUT_MS = 5000;
+
+// Helper: fetch with hard timeout so we never hang on slow JSONBin
+async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { ...opts, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return res;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    throw e;
+  }
+}
 
 async function fetchLeaderboard() {
   if (!LEADERBOARD_URL) return [];
   try {
-    const res = await fetch(LEADERBOARD_URL + '/latest', { cache: 'no-store' });
-    if (!res.ok) throw new Error('fetch failed');
+    const res = await fetchWithTimeout(LEADERBOARD_URL + '/latest', { cache: 'no-store' });
+    if (!res.ok) throw new Error('fetch failed: ' + res.status);
     const json = await res.json();
     const scores = (json.record && json.record.scores) || [];
-    // Filter out malformed and sort high → low
-    return scores
+    const cleaned = scores
       .filter(s => s && typeof s.score === 'number' && typeof s.initials === 'string')
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
+    return cleaned;
   } catch (e) {
-    console.warn('Leaderboard fetch failed:', e);
-    return [];
+    console.warn('Leaderboard fetch failed/timed out:', e.message);
+    return null; // null means "network failed" — different from "empty"
   }
 }
 
 async function submitScore(initials, score) {
   if (!LEADERBOARD_URL) return false;
   try {
-    // First fetch existing scores
-    const res = await fetch(LEADERBOARD_URL + '/latest', { cache: 'no-store' });
+    const cleanInitials = (initials || '???').toUpperCase().slice(0, 3).replace(/[^A-Z0-9]/g, '?');
+    // Read existing
+    const res = await fetchWithTimeout(LEADERBOARD_URL + '/latest', { cache: 'no-store' });
     const json = await res.json();
     const existing = (json.record && json.record.scores) || [];
-    // Add the new score
-    const cleanInitials = (initials || '???').toUpperCase().slice(0, 3).replace(/[^A-Z0-9]/g, '?');
     existing.push({
-      initials: cleanInitials,
-      score: score,
+      initials: cleanInitials, score: score,
       date: new Date().toISOString().slice(0, 10)
     });
-    // Keep only top 50 to prevent bin bloat
     existing.sort((a, b) => b.score - a.score);
     const trimmed = existing.slice(0, 50);
-    // PUT it back
-    const putRes = await fetch(LEADERBOARD_URL, {
+    // Write back
+    const putRes = await fetchWithTimeout(LEADERBOARD_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scores: trimmed })
     });
+    if (putRes.ok) {
+      // Update in-memory cache so the rest of this session sees the new score immediately
+      _leaderboardCache = trimmed.slice(0, 10);
+      _leaderboardCacheTime = Date.now();
+    }
     return putRes.ok;
   } catch (e) {
-    console.warn('Leaderboard submit failed:', e);
+    console.warn('Leaderboard submit failed/timed out:', e.message);
     return false;
   }
 }
 
-// Cache the leaderboard so we don't refetch constantly
+// In-memory cache (this session only — does NOT persist to localStorage).
+// Short TTL so the leaderboard stays fresh across rounds.
 let _leaderboardCache = null;
 let _leaderboardCacheTime = 0;
+let _leaderboardFetching = false;
+const CACHE_TTL_MS = 15000; // 15s — short enough to feel fresh
+
 async function getLeaderboard(forceRefresh = false) {
   const now = Date.now();
-  if (!forceRefresh && _leaderboardCache && (now - _leaderboardCacheTime) < 30000) {
+  if (!forceRefresh && _leaderboardCache && (now - _leaderboardCacheTime) < CACHE_TTL_MS) {
     return _leaderboardCache;
   }
-  _leaderboardCache = await fetchLeaderboard();
-  _leaderboardCacheTime = now;
-  return _leaderboardCache;
+  const fresh = await fetchLeaderboard();
+  if (fresh !== null) {
+    _leaderboardCache = fresh;
+    _leaderboardCacheTime = now;
+    return fresh;
+  }
+  // Network failed — return whatever in-memory cache we have, or empty
+  return _leaderboardCache || [];
 }
 
-async function renderLeaderboard() {
+// Kick off a background fetch so the in-memory cache is warm by the time it's needed
+function prewarmLeaderboard() {
+  if (!LEADERBOARD_URL || _leaderboardFetching) return;
+  _leaderboardFetching = true;
+  fetchLeaderboard().then(scores => {
+    _leaderboardFetching = false;
+    if (scores !== null) {
+      _leaderboardCache = scores;
+      _leaderboardCacheTime = Date.now();
+      // If title screen is currently visible, refresh its display
+      const titleEl = document.getElementById('title-screen');
+      if (titleEl && titleEl.style.display !== 'none') {
+        renderLeaderboardFromCache();
+      }
+    }
+  }).catch(() => { _leaderboardFetching = false; });
+}
+
+// Render whatever's in the in-memory cache. If empty and we're fetching, show LOADING.
+function renderLeaderboardFromCache() {
   const el = document.getElementById('leaderboard');
   if (!el) return;
   if (!LEADERBOARD_URL) {
@@ -2457,13 +2501,18 @@ async function renderLeaderboard() {
     return;
   }
   el.style.display = 'block';
-  el.innerHTML = '<div class="lb-title">★ TOP HUNTERS ★</div><div class="lb-loading">LOADING...</div>';
-  const scores = await getLeaderboard();
-  if (scores.length === 0) {
-    el.innerHTML = '<div class="lb-title">★ TOP HUNTERS ★</div><div class="lb-loading">BE THE FIRST!</div>';
+
+  const scores = _leaderboardCache;
+
+  if (!scores || scores.length === 0) {
+    if (_leaderboardFetching) {
+      el.innerHTML = '<div class="lb-title">★ TOP HUNTERS ★</div><div class="lb-loading">LOADING...</div>';
+    } else {
+      el.innerHTML = '<div class="lb-title">★ TOP HUNTERS ★</div><div class="lb-loading">BE THE FIRST!</div>';
+    }
     return;
   }
-  // Amazon-style ratings, top to bottom
+
   const ranks = ['TT', 'HV3', 'HV2', 'HV1', 'LE'];
   let html = '<div class="lb-title">★ TOP HUNTERS ★</div>';
   scores.slice(0, 5).forEach((s, i) => {
@@ -2471,6 +2520,12 @@ async function renderLeaderboard() {
     html += `<div class="lb-row"><span class="lb-rank">${rank}</span><span class="lb-init">${s.initials}</span><span class="lb-score">${s.score.toString().padStart(6, '0')}</span></div>`;
   });
   el.innerHTML = html;
+}
+
+// Render whatever's currently cached, then trigger a background refresh
+function renderLeaderboard() {
+  renderLeaderboardFromCache();
+  if (LEADERBOARD_URL) prewarmLeaderboard();
 }
 
 function refreshTitleScreenStats() {
@@ -2510,24 +2565,37 @@ function startGame() {
 
 document.getElementById('start-btn').addEventListener('click', startGame);
 
-// Initials submission
-document.getElementById('initials-submit').addEventListener('click', async () => {
+// Initials submission — optimistic UI: close immediately, submit in background
+document.getElementById('initials-submit').addEventListener('click', () => {
   const input = document.getElementById('initials-input');
-  const initials = (input.value || 'YOU').toUpperCase().slice(0, 3);
+  const initials = ((input.value || 'YOU').toUpperCase().slice(0, 3)).padEnd(3, '_').replace(/_/g, '?');
   const modal = document.getElementById('initials-modal');
-  const submitBtn = document.getElementById('initials-submit');
-  submitBtn.textContent = 'SUBMITTING...';
-  submitBtn.disabled = true;
   SFX.click();
-  const ok = await submitScore(initials, state.score);
-  submitBtn.textContent = '▶ SUBMIT';
-  submitBtn.disabled = false;
+
+  // Optimistically show the new score in the in-memory cache so the next title
+  // screen visit (within this session) reflects it without waiting on the network
+  const optimisticEntry = {
+    initials: initials,
+    score: state.score,
+    date: new Date().toISOString().slice(0, 10)
+  };
+  const currentCache = _leaderboardCache || [];
+  const merged = [...currentCache, optimisticEntry]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+  _leaderboardCache = merged;
+  _leaderboardCacheTime = Date.now();
+
+  // Close the modal right away — feels instant
   modal.classList.remove('show');
-  if (ok) {
-    SFX.roundClear();
-    // Force-refresh the cached leaderboard so next title screen shows new score
-    _leaderboardCache = null;
-  }
+  SFX.roundClear();
+
+  // Fire-and-forget the actual network submit
+  submitScore(initials, state.score).then(ok => {
+    if (!ok) {
+      console.warn('Score submit failed — leaderboard will return to canonical state on next refresh.');
+    }
+  });
 });
 
 // Auto-uppercase input
@@ -2545,6 +2613,7 @@ document.getElementById('retry-btn').addEventListener('click', () => {
 updateHUD();
 updateRoundDisplay();
 refreshTitleScreenStats();
+prewarmLeaderboard(); // kick off background fetch so cache is fresh by the time it matters
 loop();
 
 // Mute button + M key
