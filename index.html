@@ -194,11 +194,108 @@
     color: #ffeb3b;
     text-shadow: 2px 2px 0 #000;
     letter-spacing: 2px;
-    margin-bottom: 18px;
+    margin-bottom: 12px;
     background: rgba(0,0,0,0.4);
     padding: 6px 12px;
     border: 2px solid #ffeb3b;
     box-shadow: 3px 3px 0 #000;
+  }
+
+  #leaderboard {
+    background: rgba(0,0,0,0.6);
+    border: 3px solid #ffeb3b;
+    padding: 10px 16px;
+    margin-bottom: 18px;
+    box-shadow: 4px 4px 0 #000;
+    min-width: 240px;
+  }
+  #leaderboard .lb-title {
+    font-size: 12px;
+    color: #ffeb3b;
+    text-shadow: 2px 2px 0 #000;
+    letter-spacing: 3px;
+    text-align: center;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed #ffeb3b;
+    padding-bottom: 6px;
+  }
+  #leaderboard .lb-loading {
+    font-size: 10px;
+    color: #888;
+    text-align: center;
+    padding: 8px 0;
+  }
+  #leaderboard .lb-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    padding: 3px 0;
+    color: #fff;
+    text-shadow: 2px 2px 0 #000;
+    letter-spacing: 1px;
+  }
+  #leaderboard .lb-rank {
+    color: #ffeb3b;
+    width: 28px;
+  }
+  #leaderboard .lb-init {
+    color: #00ff41;
+    flex: 1;
+    text-align: center;
+  }
+  #leaderboard .lb-score {
+    color: #fff;
+  }
+
+  /* Initials entry modal */
+  #initials-modal {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+  }
+  #initials-modal.show { display: flex; }
+  #initials-modal h3 {
+    font-size: 20px;
+    color: #ffeb3b;
+    text-shadow: 3px 3px 0 #000;
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+    text-align: center;
+    padding: 0 16px;
+  }
+  #initials-modal .sub {
+    font-size: 10px;
+    color: #fff;
+    text-shadow: 2px 2px 0 #000;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  #initials-input {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 36px;
+    text-align: center;
+    background: #000;
+    color: #00ff41;
+    border: 3px solid #00ff41;
+    padding: 16px 12px;
+    width: 180px;
+    letter-spacing: 12px;
+    margin-bottom: 24px;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px #00ff41;
+    box-shadow: 4px 4px 0 #000;
+    outline: none;
+  }
+  #initials-input:focus {
+    border-color: #ffeb3b;
+    color: #ffeb3b;
+    text-shadow: 0 0 10px #ffeb3b;
   }
 
   .start-btn.daily {
@@ -283,10 +380,13 @@
   }
   #endgame.show { display: flex; }
   #endgame h2 {
-    font-size: 40px;
+    font-size: 28px;
     margin-bottom: 12px;
     text-shadow: 4px 4px 0 #000;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
+    text-align: center;
+    padding: 0 16px;
+    line-height: 1.2;
   }
   #endgame .endgame-subtitle {
     font-size: 11px;
@@ -451,6 +551,33 @@
       padding: 4px 8px;
       box-shadow: 2px 2px 0 #000;
     }
+    #title-screen .best-row {
+      font-size: 9px;
+      margin-bottom: 10px;
+      padding: 4px 8px;
+      box-shadow: 2px 2px 0 #000;
+    }
+    #leaderboard {
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      min-width: 200px;
+      max-width: 90%;
+    }
+    #leaderboard .lb-title {
+      font-size: 10px;
+      letter-spacing: 2px;
+    }
+    #leaderboard .lb-row {
+      font-size: 10px;
+    }
+    #initials-modal h3 { font-size: 14px; }
+    #initials-modal .sub { font-size: 8px; }
+    #initials-input {
+      font-size: 28px;
+      width: 150px;
+      letter-spacing: 8px;
+      padding: 12px 8px;
+    }
     #title-screen .subtitle {
       font-size: 10px;
       line-height: 1.6;
@@ -485,19 +612,20 @@
 
     /* Endgame screen */
     #endgame h2 {
-      font-size: 22px;
+      font-size: 18px;
       margin-bottom: 8px;
       padding: 0 12px;
       text-align: center;
+      letter-spacing: 1px;
     }
     #endgame .endgame-subtitle {
-      font-size: 8px;
-      margin-bottom: 16px;
+      font-size: 7px;
+      margin-bottom: 14px;
       padding: 0 16px;
     }
     #endgame .stats {
       font-size: 9px;
-      line-height: 1.8;
+      line-height: 1.7;
       padding: 0 16px;
     }
 
@@ -559,12 +687,11 @@
     <div class="best-row" id="best-row" style="display:none">
       BEST: <span id="best-score">000000</span> &nbsp;•&nbsp; DOUGS: <span id="total-dougs">0</span>
     </div>
+    <div id="leaderboard" style="display:none"></div>
     <div class="subtitle">
-      &gt; 3 ROUNDS TO BEAT DOUG<br>
       &gt; HIT 3 OF 5 DOUGS PER ROUND<br>
-      &gt; 3 SHOTS PER DOUG<br>
-      &gt; SHOOT GOLD CRATES TO RELOAD<br>
-      &gt; HE WILL TALK TRASH
+      &gt; CLEAR 3 ROUNDS TO BEAT HIM<br>
+      &gt; SHOOT GOLD CRATES TO RELOAD
     </div>
     <button class="start-btn" id="start-btn">▶ PRESS START</button>
     <button class="start-btn daily" id="daily-btn">★ DAILY DOUG</button>
@@ -573,12 +700,18 @@
 
   <div id="endgame">
     <h2 id="endgame-title">GAME OVER</h2>
-    <div class="endgame-subtitle">"Success and Scale Bring Broad Responsibility"</div>
     <div class="stats" id="endgame-stats"></div>
     <div class="endgame-buttons">
       <button class="start-btn" id="retry-btn">▶ PLAY AGAIN</button>
       <button class="start-btn share" id="share-btn">📋 SHARE</button>
     </div>
+  </div>
+
+  <div id="initials-modal">
+    <h3 id="initials-title">★ NEW HIGH SCORE ★</h3>
+    <div class="sub">ENTER YOUR INITIALS</div>
+    <input id="initials-input" type="text" maxlength="3" placeholder="___" autocomplete="off" />
+    <button class="start-btn" id="initials-submit">▶ SUBMIT</button>
   </div>
 </div>
 
@@ -1811,8 +1944,8 @@ function fireShot(x, y) {
   if (!hit) {
     flashFeedback('MISS!');
     state.combo = 0; // streak broken
-    // Doug taunts you on miss (50% of the time)
-    if (state.bird && state.bird.alive && !state.bird.falling && Math.random() < 0.5) {
+    // Doug taunts you on miss (80% of the time — he's relentless)
+    if (state.bird && state.bird.alive && !state.bird.falling && Math.random() < 0.8) {
       showTaunt(pickTaunt('miss'), state.bird.x, state.bird.y - 22 * SCALE);
     }
   }
@@ -1959,29 +2092,47 @@ function showGameOver(won = false) {
   }
   writeSave(save);
 
-  document.getElementById('endgame-title').textContent = won ? '★ YOU GOT DOUG ★' : 'GAME OVER';
+  document.getElementById('endgame-title').textContent = won ? 'YOU RAISED THE BAR!' : 'GAME OVER';
   document.getElementById('endgame-title').className = won ? 'win' : 'gameover';
 
   const acc = state.shotsFired > 0 ? Math.round((state.hits / state.shotsFired) * 100) : 0;
-  const verdict = won
-    ? `<span style="color:#00ff41">DOUG HAS BEEN HUNTED.</span><br><span style="color:#ffeb3b">FLOCO IS PROUD.</span><br><br>`
-    : `<span style="color:#ff3030">DOUG ESCAPES TO MOCK YOU ANOTHER DAY.</span><br><br>`;
   const newHighBanner = isNewHigh
-    ? `<div style="color:#ffeb3b;font-size:1.1em;margin:8px 0;animation:blink 0.5s infinite step-end;">★ NEW HIGH SCORE ★</div>`
+    ? `<div style="color:#ffeb3b;font-size:1.3em;margin-bottom:10px;animation:blink 0.5s infinite step-end;">★ NEW HIGH SCORE ★</div>`
     : '';
   const dailyTag = state.isDaily ? ' <span style="color:#ffeb3b">[DAILY]</span>' : '';
-  document.getElementById('endgame-stats').innerHTML = verdict + newHighBanner + `
+  document.getElementById('endgame-stats').innerHTML = newHighBanner + `
     SCORE${dailyTag}: <span style="color:#00ff41">${state.score.toString().padStart(6, '0')}</span><br>
     BEST: <span style="color:#ffeb3b">${(save.highScore || 0).toString().padStart(6, '0')}</span><br>
-    BEST COMBO: <span style="color:#ffeb3b">${state.bestCombo}x</span><br>
-    ROUNDS CLEARED: ${won ? 3 : state.round - 1} / 3<br>
-    DOUGS DOWNED: ${state.hits}<br>
-    SHOTS FIRED: ${state.shotsFired}<br>
     ACCURACY: ${acc}%
   `;
   // Set up share button text
   setupShareButton(won);
   document.getElementById('endgame').classList.add('show');
+
+  // If we have a leaderboard configured and the score qualifies for top 10, prompt for initials
+  if (LEADERBOARD_URL && state.score > 0) {
+    checkLeaderboardEligibility(state.score);
+  }
+}
+
+async function checkLeaderboardEligibility(score) {
+  try {
+    const top = await getLeaderboard(true);
+    const qualifies = top.length < 10 || score > (top[top.length - 1]?.score || 0);
+    if (qualifies) {
+      // Show the initials modal after a brief delay so the user sees the game-over first
+      setTimeout(() => promptForInitials(score), 800);
+    }
+  } catch (e) {}
+}
+
+function promptForInitials(score) {
+  const modal = document.getElementById('initials-modal');
+  const input = document.getElementById('initials-input');
+  document.getElementById('initials-title').textContent = `★ TOP 10! SCORE: ${score.toString().padStart(6, '0')} ★`;
+  input.value = '';
+  modal.classList.add('show');
+  setTimeout(() => input.focus(), 100);
 }
 
 function setupShareButton(won) {
@@ -2054,12 +2205,12 @@ function loop() {
       state.reloadBox.update();
       if (state.reloadBox.dead) state.reloadBox = null;
     }
-    // Random in-flight taunts
+    // Random in-flight taunts — Doug is chatty
     if (state.tauntCooldown > 0) state.tauntCooldown--;
     if (state.bird && state.bird.alive && !state.bird.falling && !state.bird._escapeStarted
-        && state.tauntCooldown === 0 && Math.random() < 0.012) {
+        && state.tauntCooldown === 0 && Math.random() < 0.04) {
       showTaunt(pickTaunt('flying'), state.bird.x, state.bird.y - 22 * SCALE);
-      state.tauntCooldown = 90; // wait at least 1.5s between random taunts
+      state.tauntCooldown = 50; // ~0.8s minimum gap
     }
     checkDuckResolved();
   } else if (state.phase === 'dog-intro') {
@@ -2230,6 +2381,97 @@ function drawCrosshair(x, y) {
 }
 
 // =========== INIT ===========
+// =========== LEADERBOARD (shared, via JSONBin.io) ===========
+// SETUP: Create a free public bin at https://jsonbin.io with content {"scores": []}
+// Then paste your bin ID below. Leave as null to disable shared leaderboard.
+const LEADERBOARD_BIN_ID = 69f1f617aaba8821974fd193; // <-- replace with your bin id'
+const LEADERBOARD_URL = LEADERBOARD_BIN_ID
+  ? `https://api.jsonbin.io/v3/b/${LEADERBOARD_BIN_ID}`
+  : null;
+
+async function fetchLeaderboard() {
+  if (!LEADERBOARD_URL) return [];
+  try {
+    const res = await fetch(LEADERBOARD_URL + '/latest', { cache: 'no-store' });
+    if (!res.ok) throw new Error('fetch failed');
+    const json = await res.json();
+    const scores = (json.record && json.record.scores) || [];
+    // Filter out malformed and sort high → low
+    return scores
+      .filter(s => s && typeof s.score === 'number' && typeof s.initials === 'string')
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+  } catch (e) {
+    console.warn('Leaderboard fetch failed:', e);
+    return [];
+  }
+}
+
+async function submitScore(initials, score) {
+  if (!LEADERBOARD_URL) return false;
+  try {
+    // First fetch existing scores
+    const res = await fetch(LEADERBOARD_URL + '/latest', { cache: 'no-store' });
+    const json = await res.json();
+    const existing = (json.record && json.record.scores) || [];
+    // Add the new score
+    const cleanInitials = (initials || '???').toUpperCase().slice(0, 3).replace(/[^A-Z0-9]/g, '?');
+    existing.push({
+      initials: cleanInitials,
+      score: score,
+      date: new Date().toISOString().slice(0, 10)
+    });
+    // Keep only top 50 to prevent bin bloat
+    existing.sort((a, b) => b.score - a.score);
+    const trimmed = existing.slice(0, 50);
+    // PUT it back
+    const putRes = await fetch(LEADERBOARD_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scores: trimmed })
+    });
+    return putRes.ok;
+  } catch (e) {
+    console.warn('Leaderboard submit failed:', e);
+    return false;
+  }
+}
+
+// Cache the leaderboard so we don't refetch constantly
+let _leaderboardCache = null;
+let _leaderboardCacheTime = 0;
+async function getLeaderboard(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && _leaderboardCache && (now - _leaderboardCacheTime) < 30000) {
+    return _leaderboardCache;
+  }
+  _leaderboardCache = await fetchLeaderboard();
+  _leaderboardCacheTime = now;
+  return _leaderboardCache;
+}
+
+async function renderLeaderboard() {
+  const el = document.getElementById('leaderboard');
+  if (!el) return;
+  if (!LEADERBOARD_URL) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
+  el.innerHTML = '<div class="lb-title">★ TOP HUNTERS ★</div><div class="lb-loading">LOADING...</div>';
+  const scores = await getLeaderboard();
+  if (scores.length === 0) {
+    el.innerHTML = '<div class="lb-title">★ TOP HUNTERS ★</div><div class="lb-loading">BE THE FIRST!</div>';
+    return;
+  }
+  let html = '<div class="lb-title">★ TOP HUNTERS ★</div>';
+  scores.slice(0, 5).forEach((s, i) => {
+    const rank = (i + 1).toString().padStart(2, '0');
+    html += `<div class="lb-row"><span class="lb-rank">${rank}</span><span class="lb-init">${s.initials}</span><span class="lb-score">${s.score.toString().padStart(6, '0')}</span></div>`;
+  });
+  el.innerHTML = html;
+}
+
 function refreshTitleScreenStats() {
   const save = loadSave();
   const row = document.getElementById('best-row');
@@ -2240,7 +2482,7 @@ function refreshTitleScreenStats() {
   } else {
     row.style.display = 'none';
   }
-  // Daily button label — show whether you've already played today
+  // Daily button label
   const today = getDailyDateStr();
   const dailyBtn = document.getElementById('daily-btn');
   if (save.dailyDate === today && save.dailyScore > 0) {
@@ -2248,6 +2490,7 @@ function refreshTitleScreenStats() {
   } else {
     dailyBtn.textContent = '★ DAILY DOUG';
   }
+  renderLeaderboard();
 }
 
 function startGame(daily = false) {
@@ -2280,6 +2523,31 @@ function startGame(daily = false) {
 
 document.getElementById('start-btn').addEventListener('click', () => startGame(false));
 document.getElementById('daily-btn').addEventListener('click', () => startGame(true));
+
+// Initials submission
+document.getElementById('initials-submit').addEventListener('click', async () => {
+  const input = document.getElementById('initials-input');
+  const initials = (input.value || 'YOU').toUpperCase().slice(0, 3);
+  const modal = document.getElementById('initials-modal');
+  const submitBtn = document.getElementById('initials-submit');
+  submitBtn.textContent = 'SUBMITTING...';
+  submitBtn.disabled = true;
+  SFX.click();
+  const ok = await submitScore(initials, state.score);
+  submitBtn.textContent = '▶ SUBMIT';
+  submitBtn.disabled = false;
+  modal.classList.remove('show');
+  if (ok) {
+    SFX.roundClear();
+    // Force-refresh the cached leaderboard so next title screen shows new score
+    _leaderboardCache = null;
+  }
+});
+
+// Auto-uppercase input
+document.getElementById('initials-input').addEventListener('input', (e) => {
+  e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+});
 
 document.getElementById('retry-btn').addEventListener('click', () => {
   SFX.click();
