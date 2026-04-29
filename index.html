@@ -2026,6 +2026,35 @@ function endRound() {
   }
 }
 
+// =============================================
+// EDIT THESE TO CHANGE THE GAME-OVER TITLES.
+// Keep each line short (under ~22 chars) so it
+// fits on one line on mobile screens.
+// =============================================
+const ENDGAME_TITLES = {
+  // Shown when the player BEATS Doug (clears all 3 rounds)
+  win: [
+    'ALMOST BAR RAISING',
+    'BIG PIPPIN',
+    'NO RSUS FOR DOUG',
+    'WAY TO GO ROOKIE!',
+    'NOICE!'
+  ],
+  // Shown when the player FAILS a round
+  lose: [
+    'DISAPPOINTING',
+    'ARE YOU CRYING?!',
+    'PIP INCOMING',
+    'BRUHH?!',
+    'DO YOU EVEN?!'
+  ]
+};
+
+function pickEndgameTitle(won) {
+  const list = won ? ENDGAME_TITLES.win : ENDGAME_TITLES.lose;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 function showGameOver(won = false) {
   state.phase = 'game-over';
   document.getElementById('game-wrap').classList.remove('playing');
@@ -2046,7 +2075,7 @@ function showGameOver(won = false) {
   if (state.bestCombo > (save.bestCombo || 0)) save.bestCombo = state.bestCombo;
   writeSave(save);
 
-  document.getElementById('endgame-title').textContent = won ? 'ARE YOU CRYING?!' : 'GAME OVER';
+  document.getElementById('endgame-title').textContent = pickEndgameTitle(won);
   document.getElementById('endgame-title').className = won ? 'win' : 'gameover';
 
   const acc = state.shotsFired > 0 ? Math.round((state.hits / state.shotsFired) * 100) : 0;
