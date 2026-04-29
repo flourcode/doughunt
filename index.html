@@ -2046,7 +2046,7 @@ function showGameOver(won = false) {
   if (state.bestCombo > (save.bestCombo || 0)) save.bestCombo = state.bestCombo;
   writeSave(save);
 
-  document.getElementById('endgame-title').textContent = won ? '★ YOU RAISED THE BAR! ★' : 'GAME OVER';
+  document.getElementById('endgame-title').textContent = won ? 'ARE YOU CRYING?!' : 'GAME OVER';
   document.getElementById('endgame-title').className = won ? 'win' : 'gameover';
 
   const acc = state.shotsFired > 0 ? Math.round((state.hits / state.shotsFired) * 100) : 0;
